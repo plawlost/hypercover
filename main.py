@@ -17,8 +17,21 @@ def index():
         # Get company info
         company_info = companyfinder.getCompany(company)
         
-        # Generate cover letter (placeholder text - replace with your generation logic)
-        cover_letter = f"Dear Hiring Manager,\n\nI am writing to express my interest in the {role} position at {company}.\n\nBest regards,\n{name}"
+        # Generate a more detailed cover letter
+        company_info = companyfinder.getCompany(company)
+        
+        cover_letter = f"""Dear Hiring Manager,
+
+I am writing to express my sincere interest in the {role} position at {company}. With great enthusiasm, I am applying for this opportunity to contribute to your team.
+
+{company_info['description']}
+
+I am excited about the possibility of joining {company} and contributing to your continued success. I believe my skills and passion for this field make me an excellent candidate for this role.
+
+I look forward to discussing how I can contribute to {company}'s mission and success in more detail.
+
+Best regards,
+{name}"""
         
         # Create Word document
         doc = Document()

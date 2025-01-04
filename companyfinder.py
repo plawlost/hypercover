@@ -1,69 +1,31 @@
-from linkedin_api import Linkedin
+
 import requests
 from bs4 import BeautifulSoup
 import json
 
-def get_company_info_from_linkedin(company_name):
-    # Authenticate with LinkedIn API
-    api = Linkedin("tenil52929@pofmagic.com", "wz9yqrHzSzCMZvT")  # Use your LinkedIn credentials
-
-    # Search for the company by name
-    search_results = api.search_companies(company_name)
-
-    if search_results:
-        
-        company_id = search_results[0]['urn_id']
-        company_info = api.get_company(company_id)
-        company_description = company_info.get('description', 'No description available')
-        company_website = company_info.get('companyPageUrl', 'No website URL available')
-
-        return company_description, company_website
-    else:
-        return None, None
-
-def scrape_website_for_paragraphs(website_url):
-    # Send a request to the company website
-    response = requests.get(website_url)
-    print(response)
-    if response.status_code == 200:
-        # Parse the website content with BeautifulSoup
+def scrape_website_for_info(company_name):
+    search_url = f"https://www.google.com/search?q={company_name}+company+about"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    
+    try:
+        response = requests.get(search_url, headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Extract all paragraphs from the webpage
-        paragraphs = soup.find_all('p')
-        text_data = [p.get_text() for p in paragraphs]
+        # Extract snippet from search results
+        snippets = soup.find_all('div', {'class': ['VwiC3b', 'yXK7lf', 'MUxGbd', 'yDYNvb', 'lyLwlc']})
+        description = ' '.join([s.get_text() for s in snippets[:2]])
         
-        return '\n'.join(text_data)
-    else:
-        return 'Failed to retrieve the website content'
+        return {
+            "name": company_name,
+            "description": description or f"Information about {company_name}",
+            "website_data": description
+        }
+    except Exception as e:
+        return {
+            "name": company_name,
+            "description": f"Information about {company_name}",
+            "website_data": ""
+        }
 
-def save_data_to_file(company_description, company_website, website_text):
-    # Save the data to a JSON file
-    data = {
-        'company_description': company_description,
-        'company_website': company_website,
-        'website_text': website_text
-    }
-    
-    with open('company_data.json', 'w') as file:
-        json.dump(data, file, indent=4)
-    
-    print("Data saved to company_data.json")
-
-def getCompany(company_name):# Take user input for the company name
-
-    # Get company info from LinkedIn
-    company_description, company_website = get_company_info_from_linkedin(company_name)
-    
-    if company_description and company_website:
-        print(f"Company Description: {company_description}")
-        print(f"Company Website: {company_website}")
-        
-        # Scrape the company website for paragraphs
-        website_text = scrape_website_for_paragraphs(company_website)
-        
-        return {"name": company_name, "description": company_description, "website": company_website, "website_data": website_text}
-    else:
-        print("Company not found or invalid LinkedIn data")
-
-
+def getCompany(company_name):
+    return scrape_website_for_info(company_name)
