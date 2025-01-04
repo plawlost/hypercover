@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter Writer</title>
+    <style>
+        /* Basic Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background-color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            width: 100%;
+            max-width: 900px; /* Full-width adjustment */
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        label {
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: left;
+            margin-bottom: 5px;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            transition: border 0.3s ease-in-out;
+        }
+
+        input:focus {
+            border-color: #4CAF50;
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .generated-letter {
+            margin-top: 30px;
+            background-color: #f7f7f7;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            color: #444;
+        }
+
+        .generated-letter p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .generated-letter h2 {
+            color: #333;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+        }
+
+        .download-links {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .download-links a {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .download-links a:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Cover Letter Writer</h1>
+        <p>Enter the details below to generate your cover letter:</p>
+        
+        <form method="POST">
+            <label for="input_1">Company:</label>
+            <input type="text" id="input_1" name="input_1" placeholder="Enter company name" required>
+
+            <label for="input_2">Role:</label>
+            <input type="text" id="input_2" name="input_2" placeholder="Enter role" required>
+
+            <label for="input_3">Your Name:</label>
+            <input type="text" id="input_3" name="input_3" placeholder="Enter your name" required>
+
+            <button type="submit">Generate Cover Letter</button>
+        </form>
+
+        {% if paragraph %}
+        <div class="generated-letter">
+            <h2>Generated Cover Letter:</h2>
+            <p>{{ paragraph }}</p>
+        </div>
+
+        <!-- Download Links -->
+        <div class="download-links">
+            <a href="{{ url_for('download', filetype='docx') }}" download="cover_letter.docx">Download DOCX</a>
+            <a href="{{ url_for('download', filetype='pdf') }}" download="cover_letter.pdf">Download PDF</a>
+        </div>
+        {% endif %}
+    </div>
+
+</body>
+</html>
