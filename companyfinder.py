@@ -5,7 +5,7 @@ import json
 
 def get_company_info_from_linkedin(company_name):
     # Authenticate with LinkedIn API
-    api = Linkedin("email", "password")  # Use your LinkedIn credentials
+    api = Linkedin("tenil52929@pofmagic.com", "wz9yqrHzSzCMZvT")  # Use your LinkedIn credentials
 
     # Search for the company by name
     search_results = api.search_companies(company_name)
