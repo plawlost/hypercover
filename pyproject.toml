@@ -5,6 +5,9 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "beautifulsoup4>=4.12.3",
+    "docx>=0.2.4",
+    "docx2pdf>=0.1.8",
+    "flask>=3.1.0",
     "linkedin-api>=2.3.1",
     "requests>=2.32.3",
 ]
