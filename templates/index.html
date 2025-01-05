@@ -3,160 +3,620 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cover Letter Writer</title>
-    <style>
-        /* Basic Reset */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f0f4f8;
-            color: #333;
-            line-height: 1.6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 20px;
-            overflow-x: hidden;
-        }
-
-        .container {
-            background-color: #ffffff;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-            width: 100%;
-            max-width: 900px; /* Full-width adjustment */
-            padding: 30px;
-            text-align: center;
-        }
-
-        h1 {
-            color: #333;
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        label {
-            font-size: 1.1rem;
-            font-weight: bold;
-            text-align: left;
-            margin-bottom: 5px;
-        }
-
-        input {
-            padding: 10px;
-            font-size: 1rem;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-            transition: border 0.3s ease-in-out;
-        }
-
-        input:focus {
-            border-color: #4CAF50;
-        }
-
-        button {
-            padding: 12px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: background-color 0.3s ease-in-out;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-        .generated-letter {
-            margin-top: 30px;
-            background-color: #f7f7f7;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            text-align: left;
-            color: #444;
-        }
-
-        .generated-letter p {
-            font-size: 1.1rem;
-            line-height: 1.6;
-        }
-
-        .generated-letter h2 {
-            color: #333;
-            font-size: 1.8rem;
-            margin-bottom: 15px;
-        }
-
-        .download-links {
-            margin-top: 20px;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .download-links a {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            transition: background-color 0.3s ease-in-out;
-        }
-
-        .download-links a:hover {
-            background-color: #45a049;
-        }
-    </style>
+    <title>HyperCover - Bulk Cover Letter Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
-<body>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">
+                HyperCover
+            </h1>
+            <p class="text-center text-gray-600 mb-8">Generate 100 personalized cover letters in 30 seconds</p>
+            
+            <!-- Step 1: LinkedIn Profile -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold mb-4">Step 1: Import LinkedIn Profile</h2>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <input type="text" id="linkedin-url" placeholder="Paste any LinkedIn profile URL" 
+                               class="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <button onclick="fetchLinkedInProfile()" 
+                                id="import-btn"
+                                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                            Import Profile
+                        </button>
+                    </div>
+                    <div id="profile-preview" class="hidden">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-lg mb-2">Profile Preview</h3>
+                            <div id="profile-data" class="space-y-2 text-sm"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 2: Choose Cover Letter Style -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold mb-4">Step 2: Choose Cover Letter Style</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for template_id, template in templates.items() %}
+                    <div class="border rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors relative"
+                         onclick="selectTemplate('{{ template_id }}')"
+                         id="template-{{ template_id }}">
+                        <div class="absolute top-2 right-2 hidden check-icon">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2">{{ template.name }}</h3>
+                        <p class="text-sm text-gray-600 mb-2">{{ template.description }}</p>
+                        <div class="flex space-x-2">
+                            <button onclick="previewTemplate('{{ template_id }}', event)" 
+                                    class="text-blue-500 text-sm hover:text-blue-600">
+                                Preview Sample
+                            </button>
+                            <button onclick="customizeTemplate('{{ template_id }}', event)"
+                                    class="text-blue-500 text-sm hover:text-blue-600">
+                                Customize
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
 
-    <div class="container">
-        <h1>Cover Letter Writer</h1>
-        <p>Enter the details below to generate your cover letter:</p>
-        
-        <form method="POST">
-            <label for="input_1">Company:</label>
-            <input type="text" id="input_1" name="input_1" placeholder="Enter company name" required>
+            <!-- Template Customization Modal -->
+            <div id="customization-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+                <div class="bg-white rounded-lg max-w-6xl mx-auto mt-20 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold">Customize Template</h3>
+                        <button onclick="closeCustomizationModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Left Panel: Customization Options -->
+                        <div class="space-y-4">
+                            <!-- Existing customization options -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tone</label>
+                                <select id="template-tone" onchange="updatePreview()" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="formal">Formal</option>
+                                    <option value="casual">Casual</option>
+                                    <option value="confident">Confident</option>
+                                    <option value="humble">Humble</option>
+                                </select>
+                            </div>
 
-            <label for="input_2">Role:</label>
-            <input type="text" id="input_2" name="input_2" placeholder="Enter role" required>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Sections</label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="section-intro" checked class="form-checkbox" onchange="updatePreview()">
+                                        <span class="ml-2">Introduction</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="section-experience" checked class="form-checkbox" onchange="updatePreview()">
+                                        <span class="ml-2">Experience Highlights</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="section-company" checked class="form-checkbox" onchange="updatePreview()">
+                                        <span class="ml-2">Company Research</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="section-closing" checked class="form-checkbox" onchange="updatePreview()">
+                                        <span class="ml-2">Closing Statement</span>
+                                    </label>
+                                </div>
+                            </div>
 
-            <label for="input_3">Your Name:</label>
-            <input type="text" id="input_3" name="input_3" placeholder="Enter your name" required>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Paragraph Structure</label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="structure" value="traditional" checked class="form-radio" onchange="updatePreview()">
+                                        <span class="ml-2">Traditional (3-4 paragraphs)</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="structure" value="bullets" class="form-radio" onchange="updatePreview()">
+                                        <span class="ml-2">Bullet Points</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="structure" value="concise" class="form-radio" onchange="updatePreview()">
+                                        <span class="ml-2">Concise (2-3 paragraphs)</span>
+                                    </label>
+                                </div>
+                            </div>
 
-            <button type="submit">Generate Cover Letter</button>
-        </form>
+                            <div class="pt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Save as Custom Template</label>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="template-name" placeholder="Template Name" 
+                                           class="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <button onclick="saveCustomTemplate()" 
+                                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                                        Save
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-        {% if paragraph %}
-        <div class="generated-letter">
-            <h2>Generated Cover Letter:</h2>
-            <p>{{ paragraph }}</p>
+                        <!-- Right Panel: Live Preview -->
+                        <div class="border rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="font-semibold">Live Preview</h4>
+                                <div class="flex space-x-2">
+                                    <button onclick="togglePreviewFormat('doc')" 
+                                            class="text-sm px-3 py-1 rounded" 
+                                            id="preview-doc">DOC</button>
+                                    <button onclick="togglePreviewFormat('pdf')" 
+                                            class="text-sm px-3 py-1 rounded" 
+                                            id="preview-pdf">PDF</button>
+                                </div>
+                            </div>
+                            <div id="preview-content" class="h-[600px] overflow-y-auto bg-white p-4 font-serif">
+                                <div class="animate-pulse text-center text-gray-500">
+                                    Generating preview...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 3: Upload Spreadsheet -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold mb-4">Step 3: Upload Your Job List</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-sm text-gray-600">First time? Download our template:</p>
+                        <a href="{{ url_for('download_template') }}" 
+                           class="text-blue-500 hover:text-blue-600 flex items-center space-x-2">
+                            <i class="fas fa-download"></i>
+                            <span>Download Template</span>
+                        </a>
+                    </div>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" 
+                         id="drop-zone" 
+                         ondrop="handleDrop(event)" 
+                         ondragover="handleDragOver(event)">
+                        <i class="fas fa-file-excel text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-600">Drag and drop your CSV file here or</p>
+                        <input type="file" id="file-input" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+                        <button onclick="document.getElementById('file-input').click()" 
+                                class="text-blue-500 hover:text-blue-600">browse to upload</button>
+                        <p class="text-sm text-gray-500 mt-2">CSV format: company_name, position, notes (optional)</p>
+                    </div>
+                    <div id="file-preview" class="hidden">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-lg mb-2">Selected File</h3>
+                            <p id="file-name" class="text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Generate Button -->
+            <div class="text-center">
+                <button onclick="generateCoverLetters()" 
+                        id="generate-btn"
+                        disabled
+                        class="bg-green-500 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    Generate Cover Letters
+                </button>
+            </div>
+            
+            <!-- Progress and Download -->
+            <div id="progress-section" class="hidden mt-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-semibold mb-4">Generation Progress</h3>
+                    <div class="relative pt-1">
+                        <div class="flex mb-2 items-center justify-between">
+                            <div>
+                                <span id="progress-status" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                    Processing
+                                </span>
+                            </div>
+                            <div class="text-right">
+                                <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
+                                    0%
+                                </span>
+                            </div>
+                        </div>
+                        <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                            <div id="progress-bar" 
+                                 class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-300" 
+                                 style="width: 0%">
+                            </div>
+                        </div>
+                        <div id="progress-details" class="text-sm text-gray-600">
+                            Initializing...
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- Download Links -->
-        <div class="download-links">
-            <a href="{{ url_for('download', filetype='docx') }}" download="cover_letter.docx">Download DOCX</a>
-            <a href="{{ url_for('download', filetype='pdf') }}" download="cover_letter.pdf">Download PDF</a>
-        </div>
-        {% endif %}
     </div>
 
+    <!-- Template Preview Modal -->
+    <div id="template-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg max-w-2xl w-full mx-4 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold" id="modal-title"></h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="prose max-w-none" id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let userProfile = null;
+        let selectedFile = null;
+        let selectedTemplate = null;
+        let socket = null;
+        let sessionId = null;
+        const templates = {{ templates|tojson|safe }};
+
+        // Initialize Socket.IO connection
+        function initializeSocket() {
+            sessionId = Math.random().toString(36).substring(7);
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+            });
+            
+            socket.on('generation_progress', (data) => {
+                if (data.session_id === sessionId) {
+                    updateProgress(data.progress);
+                }
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeSocket);
+
+        function updateProgress(progress) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressStatus = document.getElementById('progress-status');
+            const progressDetails = document.getElementById('progress-details');
+            
+            progress = Math.min(100, Math.round(progress));
+            
+            progressBar.style.width = `${progress}%`;
+            progressPercentage.textContent = `${progress}%`;
+            
+            if (progress < 30) {
+                progressDetails.textContent = 'Gathering company information...';
+            } else if (progress < 60) {
+                progressDetails.textContent = 'Generating cover letters...';
+            } else if (progress < 90) {
+                progressDetails.textContent = 'Creating documents...';
+            } else {
+                progressDetails.textContent = 'Finalizing...';
+                progressStatus.textContent = 'Almost Done';
+                progressStatus.classList.remove('bg-blue-200', 'text-blue-600');
+                progressStatus.classList.add('bg-green-200', 'text-green-600');
+            }
+        }
+
+        function updateGenerateButton() {
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = !(userProfile && selectedFile && selectedTemplate);
+        }
+
+        async function fetchLinkedInProfile() {
+            const linkedinUrl = document.getElementById('linkedin-url').value;
+            const importBtn = document.getElementById('import-btn');
+            
+            if (!linkedinUrl) {
+                alert('Please enter a LinkedIn profile URL');
+                return;
+            }
+
+            try {
+                importBtn.disabled = true;
+                importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+                
+                const response = await fetch('/api/fetch-linkedin-profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ linkedin_url: linkedinUrl }),
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch profile');
+
+                userProfile = await response.json();
+                displayProfile(userProfile);
+                updateGenerateButton();
+            } catch (error) {
+                alert('Error fetching LinkedIn profile: ' + error.message);
+            } finally {
+                importBtn.disabled = false;
+                importBtn.innerHTML = 'Import Profile';
+            }
+        }
+
+        function displayProfile(profile) {
+            const preview = document.getElementById('profile-preview');
+            const data = document.getElementById('profile-data');
+            
+            data.innerHTML = `
+                <p><strong>Name:</strong> ${profile.name}</p>
+                <p><strong>Current Role:</strong> ${profile.current_role}</p>
+                <p><strong>Skills:</strong> ${profile.skills.join(', ')}</p>
+                <p class="text-xs text-gray-500 mt-2">Profile data imported successfully</p>
+            `;
+            
+            preview.classList.remove('hidden');
+        }
+
+        function selectTemplate(templateId) {
+            // Remove previous selection
+            if (selectedTemplate) {
+                const prevTemplate = document.getElementById(`template-${selectedTemplate}`);
+                prevTemplate.classList.remove('border-blue-500');
+                prevTemplate.querySelector('.check-icon').classList.add('hidden');
+            }
+            
+            selectedTemplate = templateId;
+            const template = document.getElementById(`template-${templateId}`);
+            template.classList.add('border-blue-500');
+            template.querySelector('.check-icon').classList.remove('hidden');
+            updateGenerateButton();
+        }
+
+        function previewTemplate(templateId, event) {
+            event.stopPropagation();
+            const template = templates[templateId];
+            document.getElementById('modal-title').textContent = template.name;
+            document.getElementById('modal-content').innerHTML = `
+                <div class="whitespace-pre-wrap font-mono text-sm">
+                    ${template.sample}
+                </div>
+            `;
+            document.getElementById('template-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('template-modal').classList.add('hidden');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                handleFile(file);
+            } else {
+                alert('Please upload a CSV file');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        }
+
+        function handleFile(file) {
+            selectedFile = file;
+            const preview = document.getElementById('file-preview');
+            const fileName = document.getElementById('file-name');
+            
+            fileName.textContent = file.name;
+            preview.classList.remove('hidden');
+            updateGenerateButton();
+        }
+
+        async function generateCoverLetters() {
+            if (!userProfile || !selectedFile || !selectedTemplate) {
+                alert('Please complete all steps first');
+                return;
+            }
+
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('user_profile', JSON.stringify(userProfile));
+            formData.append('template_id', selectedTemplate);
+            formData.append('session_id', sessionId);
+
+            document.getElementById('progress-section').classList.remove('hidden');
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-percentage').textContent = '0%';
+            document.getElementById('progress-status').textContent = 'Processing';
+            document.getElementById('progress-details').textContent = 'Initializing...';
+
+            try {
+                const response = await fetch('/api/bulk-generate', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) throw new Error('Generation failed');
+
+                const result = await response.json();
+                if (result.success) {
+                    updateProgress(100);
+                    document.getElementById('progress-status').textContent = 'Complete';
+                    document.getElementById('progress-details').textContent = 'Downloading your cover letters...';
+                    window.location.href = result.download_url;
+                }
+            } catch (error) {
+                alert('Error generating cover letters: ' + error.message);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Generate Cover Letters';
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('template-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        function customizeTemplate(templateId, event) {
+            event.stopPropagation();
+            currentTemplateId = templateId;
+            document.getElementById('customization-modal').classList.remove('hidden');
+        }
+
+        function closeCustomizationModal() {
+            document.getElementById('customization-modal').classList.add('hidden');
+        }
+
+        function saveCustomTemplate() {
+            const name = document.getElementById('template-name').value;
+            if (!name) {
+                alert('Please enter a template name');
+                return;
+            }
+
+            const customTemplate = {
+                name: name,
+                tone: document.getElementById('template-tone').value,
+                sections: {
+                    intro: document.getElementById('section-intro').checked,
+                    experience: document.getElementById('section-experience').checked,
+                    company: document.getElementById('section-company').checked,
+                    closing: document.getElementById('section-closing').checked
+                },
+                structure: document.querySelector('input[name="structure"]:checked').value,
+                baseTemplate: currentTemplateId
+            };
+
+            // Save to localStorage
+            let savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+            savedTemplates[name] = customTemplate;
+            localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+
+            // Close modal and show success message
+            closeCustomizationModal();
+            alert('Template saved successfully!');
+        }
+
+        // Load custom templates on page load
+        window.addEventListener('load', function() {
+            const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+            const templateGrid = document.querySelector('.grid');
+            
+            Object.entries(savedTemplates).forEach(([name, template]) => {
+                const templateDiv = document.createElement('div');
+                templateDiv.className = 'border rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors relative';
+                templateDiv.innerHTML = `
+                    <div class="absolute top-2 right-2 hidden check-icon">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                    </div>
+                    <h3 class="font-semibold text-lg mb-2">${name} (Custom)</h3>
+                    <p class="text-sm text-gray-600 mb-2">Customized template based on ${templates[template.baseTemplate].name}</p>
+                    <div class="flex space-x-2">
+                        <button onclick="previewTemplate('${template.baseTemplate}', event)" 
+                                class="text-blue-500 text-sm hover:text-blue-600">
+                            Preview Sample
+                        </button>
+                        <button onclick="customizeTemplate('${template.baseTemplate}', event)"
+                                class="text-blue-500 text-sm hover:text-blue-600">
+                            Edit
+                        </button>
+                        <button onclick="deleteCustomTemplate('${name}', event)"
+                                class="text-red-500 text-sm hover:text-red-600">
+                            Delete
+                        </button>
+                    </div>
+                `;
+                templateGrid.appendChild(templateDiv);
+            });
+        });
+
+        function deleteCustomTemplate(name, event) {
+            event.stopPropagation();
+            if (confirm(`Are you sure you want to delete the template "${name}"?`)) {
+                let savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+                delete savedTemplates[name];
+                localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+                event.target.closest('.border').remove();
+            }
+        }
+
+        let previewFormat = 'doc';
+        let previewDebounceTimer;
+
+        function togglePreviewFormat(format) {
+            previewFormat = format;
+            document.getElementById('preview-doc').classList.toggle('bg-blue-500', format === 'doc');
+            document.getElementById('preview-doc').classList.toggle('text-white', format === 'doc');
+            document.getElementById('preview-pdf').classList.toggle('bg-blue-500', format === 'pdf');
+            document.getElementById('preview-pdf').classList.toggle('text-white', format === 'pdf');
+            updatePreview();
+        }
+
+        function updatePreview() {
+            clearTimeout(previewDebounceTimer);
+            previewDebounceTimer = setTimeout(async () => {
+                const previewContent = document.getElementById('preview-content');
+                previewContent.innerHTML = '<div class="animate-pulse text-center text-gray-500">Generating preview...</div>';
+
+                const templateSettings = {
+                    tone: document.getElementById('template-tone').value,
+                    sections: {
+                        intro: document.getElementById('section-intro').checked,
+                        experience: document.getElementById('section-experience').checked,
+                        company: document.getElementById('section-company').checked,
+                        closing: document.getElementById('section-closing').checked
+                    },
+                    structure: document.querySelector('input[name="structure"]:checked').value,
+                    baseTemplate: currentTemplateId
+                };
+
+                try {
+                    const response = await fetch('/api/preview-letter', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            template_settings: templateSettings,
+                            format: previewFormat
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to generate preview');
+
+                    const result = await response.json();
+                    
+                    if (previewFormat === 'pdf') {
+                        previewContent.innerHTML = `<iframe src="${result.preview_url}" class="w-full h-full border-0"></iframe>`;
+                    } else {
+                        previewContent.innerHTML = `
+                            <div class="prose max-w-none">
+                                ${result.preview_content}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    previewContent.innerHTML = `<div class="text-red-500">Error generating preview: ${error.message}</div>`;
+                }
+            }, 500); // Debounce for 500ms
+        }
+
+        // Initialize preview format buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            togglePreviewFormat('doc');
+        });
+    </script>
 </body>
 </html>
