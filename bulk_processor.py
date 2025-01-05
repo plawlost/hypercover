@@ -685,37 +685,57 @@ class BulkCoverLetterGenerator:
     
     async def generate_preview(self, template_settings: dict, format_type: str = 'doc') -> str:
         """Generate a preview of the cover letter with the given template settings"""
-        # Use a sample company and position for the preview
-        sample_data = {
-            "company_name": "Example Corp",
-            "position": "Software Engineer",
-            "notes": "Sample preview for customization"
-        }
-        
-        # Gather company info for the sample
-        company_data = await self.gather_company_info(sample_data["company_name"])
-        
-        # Generate content using the template settings
-        content = await self.generate_ai_content(
-            company_data=company_data,
-            position=sample_data["position"],
-            user_profile={
-                "name": "John Doe",
-                "current_role": "Senior Developer",
-                "experience": [
-                    {"title": "Lead Developer", "company": "Tech Co", "duration": "3 years"},
-                    {"title": "Software Engineer", "company": "Startup Inc", "duration": "2 years"}
-                ],
-                "skills": ["Python", "JavaScript", "React", "Node.js", "AWS"]
-            },
-            template_id=template_settings["baseTemplate"],
-            template_customization=template_settings
-        )
-        
-        if format_type == 'pdf':
-            return await self.format_content_for_pdf(content)
-        else:
-            return self.format_content_for_doc(content)
+        try:
+            # Use a sample company and position for the preview
+            sample_data = {
+                "company_name": "Example Corp",
+                "position": "Software Engineer",
+                "notes": "Sample preview for customization"
+            }
+            
+            # Create a mock company data instead of fetching
+            company_data = {
+                "name": sample_data["company_name"],
+                "description": "A leading technology company focused on innovation",
+                "industry": "Technology",
+                "culture": {
+                    "values": ["Innovation", "Excellence", "Teamwork"],
+                    "work_environment": "Dynamic and collaborative workplace"
+                }
+            }
+            
+            # Generate content using the template settings
+            content = await self._generate_content(
+                company_info=company_data,
+                position=sample_data["position"],
+                user_profile={
+                    "name": "John Doe",
+                    "current_role": "Senior Developer",
+                    "experience": [
+                        {"title": "Lead Developer", "company": "Tech Co", "duration": "3 years"},
+                        {"title": "Software Engineer", "company": "Startup Inc", "duration": "2 years"}
+                    ],
+                    "skills": ["Python", "JavaScript", "React", "Node.js", "AWS"]
+                },
+                template=template_settings,
+                notes=""
+            )
+            
+            # Format the content with proper HTML structure
+            formatted_content = (
+                '<div class="font-serif leading-relaxed">'
+                f'{content.replace(chr(10), "<br>")}'
+                '</div>'
+            )
+            
+            if format_type == 'pdf':
+                return await self.format_content_for_pdf(formatted_content)
+            else:
+                return formatted_content
+
+        except Exception as e:
+            self.logger.error(f"Error in generate_preview: {str(e)}", exc_info=True)
+            raise
             
     def format_content_for_doc(self, content: str) -> str:
         """Format the content for DOC preview"""

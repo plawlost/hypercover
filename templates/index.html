@@ -347,10 +347,15 @@
             const preview = document.getElementById('profile-preview');
             const data = document.getElementById('profile-data');
             
+            // Handle potential undefined or null values
+            const name = profile.name || 'N/A';
+            const currentRole = profile.current_role || 'N/A';
+            const skills = Array.isArray(profile.skills) ? profile.skills.filter(skill => skill).join(', ') : 'N/A';
+            
             data.innerHTML = `
-                <p><strong>Name:</strong> ${profile.name}</p>
-                <p><strong>Current Role:</strong> ${profile.current_role}</p>
-                <p><strong>Skills:</strong> ${profile.skills.join(', ')}</p>
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Current Role:</strong> ${currentRole}</p>
+                <p><strong>Skills:</strong> ${skills}</p>
                 <p class="text-xs text-gray-500 mt-2">Profile data imported successfully</p>
             `;
             
@@ -375,13 +380,49 @@
         function previewTemplate(templateId, event) {
             event.stopPropagation();
             const template = templates[templateId];
-            document.getElementById('modal-title').textContent = template.name;
-            document.getElementById('modal-content').innerHTML = `
-                <div class="whitespace-pre-wrap font-mono text-sm">
-                    ${template.sample}
-                </div>
-            `;
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            
+            modalTitle.textContent = template.name;
+            modalContent.innerHTML = '<div class="animate-pulse text-center text-gray-500">Generating preview...</div>';
             document.getElementById('template-modal').classList.remove('hidden');
+
+            // Fetch preview from server
+            fetch('/api/preview-letter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    template_settings: {
+                        baseTemplate: templateId,
+                        tone: 'formal',
+                        sections: {
+                            intro: true,
+                            experience: true,
+                            company: true,
+                            closing: true
+                        },
+                        structure: 'traditional'
+                    },
+                    format: 'doc'
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.preview_content) {
+                    modalContent.innerHTML = `
+                        <div class="prose max-w-none">
+                            ${result.preview_content}
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Failed to generate preview');
+                }
+            })
+            .catch(error => {
+                modalContent.innerHTML = `<div class="text-red-500">Error generating preview: ${error.message}</div>`;
+            });
         }
 
         function closeModal() {

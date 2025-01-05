@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify, url_for, send_from_directory
+from flask import Flask, render_template, request, send_file, jsonify, url_for, send_from_directory, redirect, after_this_request
 from bulk_processor import BulkCoverLetterGenerator
 import os
 from pathlib import Path
@@ -24,6 +24,13 @@ import logging
 from werkzeug.security import safe_join
 import bleach
 from prometheus_client import Counter, Histogram
+import companyfinder
+from linkedin_profile_scraper import get_profile_info
+from linkedin_api_client import LinkedInClient
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -40,9 +47,13 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 300
 app.config['CACHE_TYPE'] = 'simple'  # Use simple cache instead of Redis
 app.config['SECRET_KEY'] = os.urandom(24)  # Secure secret key
-app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
+
+# Only enable secure cookie settings in production
+is_production = os.environ.get('FLASK_ENV') == 'production'
+if is_production:
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
 
 # Try to set up Redis storage for rate limiting, fall back to memory storage if unavailable
 storage_url = None
@@ -87,19 +98,20 @@ def sanitize_input(text):
 @app.before_request
 def before_request():
     """Security middleware for all requests"""
-    # Enforce HTTPS
-    if not request.is_secure and not app.debug:
-        url = request.url.replace('http://', 'https://', 1)
-        return redirect(url, code=301)
+    if is_production:
+        # Enforce HTTPS only in production
+        if not request.is_secure:
+            url = request.url.replace('http://', 'https://', 1)
+            return redirect(url, code=301)
 
-    # Add security headers
-    @after_this_request
-    def add_security_headers(response):
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
-        response.headers['Content-Security-Policy'] = "default-src 'self'"
-        return response
+        # Add security headers only in production
+        @after_this_request
+        def add_security_headers(response):
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'DENY'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Content-Security-Policy'] = "default-src 'self'"
+            return response
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -225,9 +237,8 @@ def home():
     return render_template('index.html', templates=templates)
 
 @app.route('/download/template')
-@cache.cached(timeout=3600)  # Cache for 1 hour
 def download_template():
-    """Download CSV template file with caching"""
+    """Download CSV template file"""
     return send_file(
         'templates/job_list_template.csv',
         as_attachment=True,
@@ -253,7 +264,7 @@ def download_zip(filename):
 
 @app.route('/api/preview-letter', methods=['POST'])
 @gzip_response
-async def preview_letter():
+def preview_letter():
     """Generate a preview of the cover letter with optimized response"""
     try:
         data = request.get_json()
@@ -264,82 +275,119 @@ async def preview_letter():
             return jsonify({"error": "Missing template settings"}), 400
             
         # Get template structure and options
-        template_id = template_settings.get('template_id')
+        template_id = template_settings.get('baseTemplate')
         structure = get_template_structure(template_id)
         tone_options = get_template_tone_options(template_id)
         
-        # Generate preview with optimized settings
-        preview = await bulk_processor.generate_preview(
-            template_settings=template_settings,
-            format_type=format_type
-        )
+        # Create a new event loop for this request
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
-        return jsonify({
-            "success": True,
-            "preview": preview,
-            "structure": structure,
-            "tone_options": tone_options
-        })
-        
+        try:
+            # Generate preview with optimized settings
+            preview = loop.run_until_complete(bulk_processor.generate_preview(
+                template_settings=template_settings,
+                format_type=format_type
+            ))
+            
+            return jsonify({
+                "success": True,
+                "preview_content": preview,
+                "structure": structure,
+                "tone_options": tone_options
+            })
+        finally:
+            loop.close()
+            
     except Exception as e:
+        logger.error(f"Error generating preview: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+# Initialize LinkedIn client
+linkedin_client = LinkedInClient()
 
 @app.route('/api/fetch-linkedin-profile', methods=['POST'])
 async def fetch_linkedin_profile():
-    """Fetch LinkedIn profile with optimized scraping"""
+    """Fetch LinkedIn profile information using official API"""
     try:
-        data = request.get_json()
-        linkedin_url = data.get('linkedin_url')
+        # Log the raw request data for debugging
+        logger.info(f"Received request data: {request.data}")
         
-        if not linkedin_url:
-            return jsonify({"error": "Missing LinkedIn URL"}), 400
+        # Handle both form data and JSON data
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+        
+        logger.info(f"Processed request data: {data}")
+        
+        if not data:
+            return jsonify(error="Request must include profile data"), 400
             
-        # Check cache first
-        cache_key = f"linkedin_profile:{linkedin_url}"
-        cached_profile = cache.get(cache_key)
-        if cached_profile:
-            return jsonify(cached_profile)
+        # Check for all possible field names
+        profile_url = (
+            data.get('profile_url') or 
+            data.get('linkedinUrl') or 
+            data.get('linkedin_url')
+        )
         
-        # Fetch and parse profile
-        async with aiohttp.ClientSession() as session:
-            async with session.get(linkedin_url) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    
-                    def parse_profile():
-                        soup = BeautifulSoup(html, 'lxml')
-                        profile = {
-                            "name": soup.find('h1', {'class': 'text-heading-xlarge'}).text.strip(),
-                            "current_role": soup.find('div', {'class': 'text-body-medium'}).text.strip(),
-                            "skills": [
-                                skill.text.strip()
-                                for skill in soup.find_all('span', {'class': 'skill'})
-                            ],
-                            "experience": [
-                                {
-                                    "title": exp.find('h3').text.strip(),
-                                    "company": exp.find('p').text.strip(),
-                                    "description": exp.find('div', {'class': 'description'}).text.strip()
-                                }
-                                for exp in soup.find_all('div', {'class': 'experience-item'})
-                            ]
-                        }
-                        return profile
-                    
-                    profile = await asyncio.get_event_loop().run_in_executor(
-                        executor,
-                        parse_profile
-                    )
-                    
-                    # Cache the result
-                    cache.set(cache_key, profile)
-                    
-                    return jsonify(profile)
-                    
-        return jsonify({"error": "Failed to fetch profile"}), 500
+        if not profile_url:
+            return jsonify(error="Profile URL is required (use 'profile_url', 'linkedinUrl', or 'linkedin_url' field)"), 400
+
+        profile_url = sanitize_input(profile_url)
+        if not profile_url.startswith(('https://www.linkedin.com/in/', 'http://www.linkedin.com/in/', 'www.linkedin.com/in/', 'linkedin.com/in/')):
+            return jsonify(error="Invalid LinkedIn profile URL. Must be a valid LinkedIn profile URL (e.g., https://www.linkedin.com/in/username)"), 400
+
+        # Normalize the URL format
+        if not profile_url.startswith('https://'):
+            profile_url = 'https://' + profile_url.replace('http://', '')
+        if not profile_url.startswith('https://www.'):
+            profile_url = profile_url.replace('https://', 'https://www.')
+
+        # Extract profile ID from URL and clean it
+        profile_id = profile_url.split('/in/')[-1].split('/')[0].split('?')[0].strip()
+        logger.info(f"Extracted profile ID: {profile_id}")
         
+        # Get profile data using LinkedIn API
+        profile_data = linkedin_client.get_profile_data(profile_id)
+        logger.info(f"LinkedIn API response type: {type(profile_data)}")
+        
+        # Handle different error cases
+        if 'error' in profile_data:
+            error_type = profile_data['error']
+            logger.warning(f"LinkedIn API error: {error_type} - {profile_data['message']}")
+            
+            if error_type == 'Profile not found':
+                return jsonify(error=profile_data['message']), 404
+            elif error_type in ['Profile not accessible', 'Access denied']:
+                return jsonify(error=profile_data['message']), 403
+            elif error_type == 'Rate limit exceeded':
+                return jsonify(error=profile_data['message']), 429
+            elif error_type == 'Authentication error':
+                return jsonify(error=profile_data['message']), 401
+            else:
+                return jsonify(error=profile_data['message']), 500
+        
+        # Format the response for the frontend
+        formatted_data = {
+            'name': f"{profile_data.get('firstName', '')} {profile_data.get('lastName', '')}".strip(),
+            'current_role': profile_data.get('headline', ''),
+            'skills': [skill.get('name', '') for skill in profile_data.get('skills', []) if isinstance(skill, dict) and 'name' in skill],
+            'experience': profile_data.get('experience', []),
+            'education': profile_data.get('education', []),
+            'summary': profile_data.get('summary', ''),
+            'location': profile_data.get('locationName', ''),
+            'industry': profile_data.get('industryName', ''),
+            'profile_picture': profile_data.get('displayPictureUrl', '') + profile_data.get('img_400_400', ''),
+            'public_url': f"https://www.linkedin.com/in/{profile_data.get('public_id', '')}",
+            'raw_data': profile_data  # Include raw data for debugging
+        }
+                
+        return jsonify(formatted_data)
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error fetching LinkedIn profile: {str(e)}", exc_info=True)
+        return jsonify(error="An unexpected error occurred while fetching the profile"), 500
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
@@ -358,8 +406,8 @@ def internal_error(error):
 if __name__ == '__main__':
     socketio.run(
         app,
-        debug=False,  # Disable debug mode in production
+        debug=not is_production,  # Enable debug mode in development
         host='0.0.0.0',
         port=int(os.getenv('PORT', 5000)),
-        use_reloader=False  # Disable reloader in production
+        use_reloader=not is_production  # Enable reloader in development
     )
