@@ -13,12 +13,12 @@ from datetime import datetime
 import aiohttp
 from bs4 import BeautifulSoup
 import os
-from templates.cover_letter_templates import get_template_prompt
-import aioredis
+from templates.cover_letter_templates import get_template_prompt, get_template_info
+from redis import asyncio as aioredis
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 import aiodns
-import cchardet
+from charset_normalizer import detect
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from prometheus_client import Counter, Histogram
@@ -66,18 +66,48 @@ class BulkCoverLetterGenerator:
             headers={'User-Agent': 'Mozilla/5.0'}
         )
         
-        # Initialize DNS and Redis with optimal settings
+        # Initialize DNS resolver
         self.dns_resolver = aiodns.DNSResolver()
-        self.redis_client = await aioredis.create_redis_pool(
-            'redis://localhost',
-            minsize=5,
-            maxsize=20,
-            timeout=1
-        )
+        
+        # Try to initialize Redis, fall back to None if not available
+        self.redis_client = None
+        try:
+            redis = await aioredis.Redis.from_url(
+                'redis://localhost',
+                max_connections=20,
+                socket_timeout=1
+            )
+            # Validate connection with a ping
+            if await redis.ping():
+                self.redis_client = redis
+                self.logger.info("Redis connection established and validated")
+            else:
+                self.logger.warning("Redis connection failed ping check")
+        except Exception as e:
+            self.logger.warning(f"Redis not available, falling back to in-memory cache: {str(e)}")
         
         # Warm up template cache
         await self._preload_templates()
         
+    async def _is_redis_available(self) -> bool:
+        """Check if Redis is available and connected"""
+        if not self.redis_client:
+            return False
+        try:
+            return await self.redis_client.ping()
+        except Exception:
+            return False
+
+    async def _safe_redis_operation(self, operation):
+        """Safely execute a Redis operation with connection check"""
+        if not await self._is_redis_available():
+            return None
+        try:
+            return await operation()
+        except Exception as e:
+            self.logger.warning(f"Redis operation failed: {str(e)}")
+            return None
+
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def _fetch_with_retry(self, url: str) -> str:
         """Fetch URL with exponential backoff retry"""
@@ -92,11 +122,18 @@ class BulkCoverLetterGenerator:
 
     async def _preload_templates(self):
         """Preload and cache templates for faster access"""
-        templates = get_template_prompt("all")
-        for template_id, template in templates.items():
-            cache_key = f"template:{template_id}"
-            await self.redis_client.set(cache_key, json.dumps(template))
+        templates = get_template_info()
+        for template_id in templates.keys():
+            template = get_template_prompt(template_id)
             self.template_cache[template_id] = template
+            
+            if self.redis_client:
+                await self._safe_redis_operation(
+                    lambda: self.redis_client.set(
+                        f"template:{template_id}",
+                        json.dumps(template)
+                    )
+                )
 
     @GENERATION_TIME.time()
     async def process_spreadsheet(self, spreadsheet_path: str, user_linkedin_profile: dict, template_id: str, progress_callback=None) -> str:
@@ -537,22 +574,23 @@ class BulkCoverLetterGenerator:
 
     async def _get_template(self, template_id: str) -> Dict:
         """Get template with caching"""
-        cache_key = f"template:{template_id}"
-        
+        # First try memory cache
+        if template_id in self.template_cache:
+            return self.template_cache[template_id]
+            
+        # Then try Redis if available
         if self.redis_client:
-            cached_template = await self.redis_client.get(cache_key)
-            if cached_template:
-                return json.loads(cached_template)
-        
-        template = get_template_prompt(template_id)
-        
-        if self.redis_client:
-            await self.redis_client.set(
-                cache_key,
-                json.dumps(template),
-                expire=3600
+            cached_template = await self._safe_redis_operation(
+                lambda: self.redis_client.get(f"template:{template_id}")
             )
+            if cached_template:
+                template = json.loads(cached_template)
+                self.template_cache[template_id] = template
+                return template
         
+        # Fall back to fetching fresh
+        template = get_template_prompt(template_id)
+        self.template_cache[template_id] = template
         return template
 
     async def _generate_content(self, company_info: Dict, position: str, user_profile: Dict, template: Dict, notes: str) -> str:

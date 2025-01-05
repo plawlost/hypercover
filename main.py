@@ -17,6 +17,8 @@ import functools
 from concurrent.futures import ThreadPoolExecutor
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from limits.storage import MemoryStorage, RedisStorage
+import redis
 from marshmallow import Schema, fields, validate, ValidationError
 import logging
 from werkzeug.security import safe_join
@@ -36,20 +38,29 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 300
-app.config['CACHE_TYPE'] = 'redis'
-app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
-app.config['CACHE_DEFAULT_TIMEOUT'] = 300
+app.config['CACHE_TYPE'] = 'simple'  # Use simple cache instead of Redis
 app.config['SECRET_KEY'] = os.urandom(24)  # Secure secret key
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
 
-# Initialize rate limiter
+# Try to set up Redis storage for rate limiting, fall back to memory storage if unavailable
+storage_url = None
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, socket_connect_timeout=1)
+    redis_client.ping()
+    storage_url = "redis://localhost:6379"
+    logger.info("Using Redis storage for rate limiting")
+except (redis.ConnectionError, redis.TimeoutError) as e:
+    logger.warning(f"Redis not available for rate limiting, using memory storage: {str(e)}")
+    storage_url = "memory://"
+
+# Initialize rate limiter with the appropriate storage
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri="redis://localhost:6379/1"
+    storage_uri=storage_url
 )
 
 # Input validation schemas
@@ -147,7 +158,7 @@ async def bulk_generate():
         logger.error(f"Error in bulk generation: {str(e)}")
         return jsonify(error="An error occurred during processing"), 500
 
-# Enable caching
+# Initialize cache with simple backend
 cache = Cache(app)
 
 # Configure for proper IP handling behind proxy
@@ -161,7 +172,6 @@ socketio = SocketIO(
     app,
     async_mode='threading',
     cors_allowed_origins="*",
-    message_queue='redis://localhost:6379/0',
     ping_timeout=10,
     ping_interval=5
 )
@@ -173,6 +183,14 @@ bulk_processor = BulkCoverLetterGenerator(
 
 # Thread pool for CPU-bound tasks
 executor = ThreadPoolExecutor(max_workers=4)
+
+# Initialize the application
+async def init_app():
+    with app.app_context():
+        await bulk_processor.initialize()
+
+# Run initialization when starting the app
+asyncio.run(init_app())
 
 def gzip_response(f):
     """Decorator to gzip responses"""
@@ -198,10 +216,6 @@ def gzip_response(f):
             headers={'Content-Encoding': 'gzip'}
         )
     return wrapped
-
-@app.before_first_request
-async def initialize():
-    await bulk_processor.initialize()
 
 @app.route('/', methods=['GET'])
 @cache.cached(timeout=300)
