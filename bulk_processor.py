@@ -136,7 +136,7 @@ class BulkCoverLetterGenerator:
                 )
 
     @GENERATION_TIME.time()
-    async def process_spreadsheet(self, spreadsheet_path: str, user_linkedin_profile: dict, template_id: str, progress_callback=None) -> str:
+    async def process_spreadsheet(self, spreadsheet_path: str, user_profile: dict, template_id: str, progress_callback=None) -> str:
         """Process entire spreadsheet with optimized parallel processing"""
         try:
             df = pd.read_csv(spreadsheet_path)
@@ -173,7 +173,7 @@ class BulkCoverLetterGenerator:
                     task = self.generate_single_letter(
                         company_name=row['company_name'],
                         position=row['position'],
-                        user_profile=user_linkedin_profile,
+                        user_profile=user_profile,
                         template_id=template_id,
                         notes=row.get('notes', '')
                     )

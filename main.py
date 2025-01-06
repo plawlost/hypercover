@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, send_file, jsonify, url_for, send_from_directory, redirect, after_this_request
+from flask import Flask, render_template, request, send_file, jsonify, url_for, send_from_directory, redirect, after_this_request, Response
+from werkzeug.utils import secure_filename
+from io import BytesIO
 from bulk_processor import BulkCoverLetterGenerator
 import os
 from pathlib import Path
@@ -19,7 +21,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from limits.storage import MemoryStorage, RedisStorage
 import redis
-from marshmallow import Schema, fields, validate, ValidationError
+from marshmallow import Schema, fields, validate, ValidationError, validates
 import logging
 from werkzeug.security import safe_join
 import bleach
@@ -28,6 +30,7 @@ import companyfinder
 from linkedin_profile_scraper import get_profile_info
 from linkedin_api_client import LinkedInClient
 from dotenv import load_dotenv
+import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,6 +38,9 @@ load_dotenv()
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Constants
+VALID_TEMPLATES = ['modern_professional', 'creative_narrative', 'technical_expert', 'executive_brief']
 
 # Metrics
 REQUEST_LATENCY = Histogram('request_processing_seconds', 'Time spent processing request')
@@ -82,9 +88,31 @@ class UserProfileSchema(Schema):
     education = fields.List(fields.Dict(), required=True)
 
 class GenerationRequestSchema(Schema):
-    template_id = fields.Str(required=True, validate=validate.Length(min=1, max=50))
-    user_profile = fields.Nested(UserProfileSchema(), required=True)
-    session_id = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    """Schema for validating generation requests"""
+    template_id = fields.Str(required=True)
+    session_id = fields.Str(required=True)
+    user_profile = fields.Dict(required=True)
+
+    @validates('template_id')
+    def validate_template_id(self, value):
+        """Validate template ID"""
+        if value not in VALID_TEMPLATES:
+            raise ValidationError("Invalid template ID")
+
+    @validates('session_id')
+    def validate_session_id(self, value):
+        """Validate session ID format"""
+        if not re.match(r'^[a-z0-9]{6,}$', value):
+            raise ValidationError("Invalid session ID format")
+
+    @validates('user_profile')
+    def validate_user_profile(self, value):
+        """Validate user profile data"""
+        required_fields = ['name', 'experience', 'education']
+        for field in required_fields:
+            if field not in value:
+                raise ValidationError(f"Missing required field: {field}")
+        return value
 
 def validate_file_extension(filename):
     """Validate file extension for security"""
@@ -123,14 +151,49 @@ def ratelimit_handler(e):
 @app.route('/api/bulk-generate', methods=['POST'])
 @limiter.limit("10 per minute")
 @REQUEST_LATENCY.time()
-async def bulk_generate():
+def bulk_generate():
     """Handle bulk cover letter generation with security measures"""
     try:
-        # Validate request schema
-        schema = GenerationRequestSchema()
+        # Create upload directory if it doesn't exist
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Log incoming request data
+        logger.info(f"Received bulk generation request. Form data: {request.form}")
+        
+        # Parse user profile from form data
         try:
-            data = schema.load(request.form)
+            user_profile = json.loads(request.form.get('user_profile', '{}'))
+            template_id = request.form.get('template_id')
+            session_id = request.form.get('session_id')
+            
+            logger.info(f"Parsed data - template_id: {template_id}, session_id: {session_id}")
+            logger.info(f"User profile: {user_profile}")
+            
+            # Clean and prepare user profile data
+            cleaned_profile = {
+                'name': user_profile.get('name', ''),
+                'experience': user_profile.get('experience', []),
+                'education': user_profile.get('education', []),
+                'skills': user_profile.get('skills', []),
+                'summary': user_profile.get('summary', '')
+            }
+            
+            # Validate the data
+            data = {
+                'template_id': template_id,
+                'user_profile': cleaned_profile,
+                'session_id': session_id
+            }
+            
+            schema = GenerationRequestSchema()
+            validated_data = schema.load(data)
+            logger.info("Data validation successful")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {str(e)}")
+            return jsonify(error="Invalid user profile data format"), 400
         except ValidationError as err:
+            logger.error(f"Validation error: {err.messages}")
             return jsonify(error=err.messages), 400
 
         # Validate and secure file upload
@@ -138,37 +201,52 @@ async def bulk_generate():
             return jsonify(error="No file uploaded"), 400
             
         file = request.files['file']
-        if not file or not validate_file_extension(file.filename):
-            return jsonify(error="Invalid file type"), 400
+        if not file or not file.filename:
+            return jsonify(error="No file selected"), 400
+            
+        if not validate_file_extension(file.filename):
+            return jsonify(error="Invalid file type. Only CSV and XLSX files are allowed."), 400
 
         # Secure filename and save path
         filename = secure_filename(file.filename)
-        file_path = safe_join(app.config['UPLOAD_FOLDER'], filename)
-        
-        if not file_path:
-            return jsonify(error="Invalid file path"), 400
-
-        # Save file securely
-        file.save(file_path)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
         try:
-            # Process with sanitized inputs
-            result = await bulk_processor.process_spreadsheet(
-                spreadsheet_path=file_path,
-                user_profile=data['user_profile'],
-                template_id=sanitize_input(data['template_id']),
-                session_id=sanitize_input(data['session_id'])
-            )
+            # Save file securely
+            file.save(file_path)
+            logger.info(f"File saved successfully at {file_path}")
             
-            return jsonify(result=result)
+            # Create event loop and run async operation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             
+            try:
+                # Process with sanitized inputs
+                result = loop.run_until_complete(bulk_processor.process_spreadsheet(
+                    spreadsheet_path=file_path,
+                    user_profile=validated_data['user_profile'],
+                    template_id=sanitize_input(validated_data['template_id'])
+                ))
+                
+                return jsonify(result=result)
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"Processing error: {str(e)}")
+            return jsonify(error="An error occurred while processing the file"), 500
         finally:
             # Cleanup uploaded file
-            os.unlink(file_path)
+            try:
+                if os.path.exists(file_path):
+                    os.unlink(file_path)
+                    logger.info(f"Cleaned up temporary file: {file_path}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup file {file_path}: {str(e)}")
             
     except Exception as e:
-        logger.error(f"Error in bulk generation: {str(e)}")
-        return jsonify(error="An error occurred during processing"), 500
+        logger.error(f"Error in bulk generation: {str(e)}", exc_info=True)
+        return jsonify(error="An unexpected error occurred during processing"), 500
 
 # Initialize cache with simple backend
 cache = Cache(app)
