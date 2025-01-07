@@ -1,0 +1,17 @@
+Dear Hiring Team at Uber,  
+
+I am excited to apply for the Data Scientist position at Uber. With a strong foundation in Generative AI, Natural Language Processing (NLP), and machine learning, coupled with a proven track record of developing innovative AI systems, I am eager to contribute to Uber’s mission of revolutionizing transportation and delivery through data-driven insights.  
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of AI-driven systems, including the back-end and AI integration for the Clade AI Mini prototype. I led cross-functional teams to design and implement custom AI/ML algorithms, ensuring seamless functionality and scalability. Additionally, I co-authored a research paper titled *“Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms,”* which highlights my ability to apply advanced AI techniques to real-world challenges.  
+
+Some key highlights of my experience include:  
+- **AI/ML Expertise**: Designed and implemented diverse AI/ML algorithms, including knowledge graph-based NLP systems, to enhance product functionality and user experience.  
+- **Technical Leadership**: Led IT teams to deliver complex projects on time, fostering collaboration and innovation across disciplines.  
+- **Research & Innovation**: Published research on AI applications in digital media, demonstrating a deep understanding of leveraging big data and AI for competitive advantage.  
+
+Uber’s commitment to leveraging cutting-edge technology to optimize ride-hailing and delivery services resonates deeply with my passion for solving complex problems through data science. I am particularly drawn to the opportunity to apply my expertise in NLP, machine learning, and generative AI to enhance Uber’s predictive analytics, demand forecasting, and personalized user experiences.  
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with Uber’s goals. I am confident that my technical expertise and innovative mindset can contribute meaningfully to your team.  
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

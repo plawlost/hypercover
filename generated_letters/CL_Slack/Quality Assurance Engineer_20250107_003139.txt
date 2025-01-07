@@ -1,0 +1,14 @@
+Dear Hiring Team at Slack,
+
+I am excited to apply for the Quality Assurance Engineer position at Slack. With a strong background in software development, AI systems, and a proven track record of leading technical teams and delivering innovative solutions, I am confident in my ability to contribute to your mission of creating seamless and reliable communication tools.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of back-end and AI systems for Clade AI Mini, ensuring robust functionality and seamless integration of advanced algorithms. My responsibilities included leading cross-functional IT teams, designing and implementing AI/ML algorithms, and maintaining system integrity through rigorous debugging and version control. These experiences have honed my ability to identify and resolve technical challenges, ensuring high-quality outcomes in fast-paced environments.
+
+One of my key achievements was co-authoring the research paper *"Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms,"* which highlights my expertise in leveraging AI for innovative solutions. Additionally, my hands-on experience with technologies such as Flask, back-end web development, and machine learning aligns well with Slack’s commitment to cutting-edge technology and user-centric design.
+
+I am particularly drawn to Slack’s culture of collaboration and innovation, and I am eager to bring my technical expertise, leadership skills, and passion for problem-solving to your team. I am confident that my ability to ensure system reliability, optimize workflows, and deliver high-quality results will make a meaningful impact on your platform.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with Slack’s goals. I look forward to the possibility of contributing to your team’s success.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

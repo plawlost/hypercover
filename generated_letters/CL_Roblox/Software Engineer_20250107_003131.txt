@@ -1,0 +1,18 @@
+Dear Hiring Team at Roblox,
+
+I am excited to apply for the Software Engineer position at Roblox, a leading gaming platform that inspires creativity and innovation. With my strong background in Generative AI, Natural Language Processing (NLP), and back-end development, coupled with my proven track record in leading technical teams and delivering impactful projects, I am confident in my ability to contribute to your mission of building immersive and engaging experiences for millions of users.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of the back-end and AI systems for Clade AI Mini, integrating advanced algorithms to ensure seamless functionality. I led cross-functional IT teams, designed and implemented custom AI/ML algorithms, and co-authored a research paper on leveraging AI and big data in digital content platforms. These experiences have honed my ability to tackle complex technical challenges while fostering collaboration and innovation.
+
+Some highlights of my work include:
+- Developing scalable back-end systems and AI-driven solutions that enhanced product performance and user experience.
+- Leading the design and implementation of diverse AI/ML algorithms, including knowledge graph-based NLP systems.
+- Documenting technical processes and system architectures to ensure future scalability and maintainability.
+- Mentoring team members and fostering a culture of continuous learning and creative problem-solving.
+
+My technical expertise aligns closely with Roblox’s focus on cutting-edge technology and immersive experiences. I am particularly drawn to the opportunity to apply my skills in game development, AI, and back-end systems to create innovative solutions that empower users and developers alike. I am eager to bring my passion for technology and my commitment to excellence to your team.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with Roblox’s vision. I look forward to the possibility of contributing to your groundbreaking work.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

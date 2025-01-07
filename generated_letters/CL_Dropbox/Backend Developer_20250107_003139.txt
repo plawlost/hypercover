@@ -1,0 +1,17 @@
+Dear Hiring Team at Dropbox,
+
+I am excited to apply for the Backend Developer position at Dropbox. With a strong background in backend development, AI systems, and a proven track record of leading technical teams and delivering innovative solutions, I am eager to contribute to your mission of simplifying the way people work together.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of the back-end and AI systems for Clade AI Mini, a project that required integrating advanced algorithms and ensuring seamless functionality. I led a cross-functional IT team, designed and implemented custom AI/ML algorithms, and co-authored a research paper on AI and big data in digital content platforms. These experiences have honed my skills in backend development, system architecture, and technical leadership, making me well-equipped to tackle the challenges of building scalable and efficient systems at Dropbox.
+
+Some highlights of my technical experience include:
+- **Backend Development**: Designed and implemented robust backend systems using Flask and other technologies, ensuring high performance and scalability.
+- **AI/ML Integration**: Developed custom AI/ML algorithms tailored to specific product needs, enhancing functionality and user experience.
+- **Technical Leadership**: Led IT teams, coordinated cross-functional efforts, and documented technical processes for future scalability and development.
+
+I am particularly drawn to Dropbox because of its commitment to innovation and its focus on creating seamless user experiences. I am excited about the opportunity to contribute to your technical team and help drive the development of cutting-edge solutions that empower users worldwide.
+
+Thank you for considering my application. I look forward to the possibility of discussing how my skills and experiences align with the needs of your team.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

@@ -1,0 +1,19 @@
+Dear Hiring Team at Mode,
+
+I am excited to apply for the Data Analyst position at Mode. With a strong background in data-driven decision-making, advanced technical skills, and a passion for leveraging technology to solve complex problems, I am eager to contribute to your mission of empowering teams with collaborative data tools.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of AI-driven systems, including the back-end and AI integration for Clade AI Mini. My work involved designing and implementing custom AI/ML algorithms, managing cross-functional IT teams, and ensuring seamless system functionality. Additionally, I co-authored a research paper on AI and Big Data applications in digital content platforms, demonstrating my ability to translate technical expertise into impactful insights.
+
+Some highlights of my experience include:
+- **AI and Data Integration**: Developed and deployed advanced AI algorithms, optimizing system performance and scalability.
+- **Cross-Functional Leadership**: Led IT teams to deliver projects on time, fostering collaboration and innovation.
+- **Research and Documentation**: Authored technical papers and maintained comprehensive documentation to support future development and scalability.
+
+My technical skills align closely with Mode’s focus on collaborative data tools. Proficient in programming languages like Python and C, as well as frameworks such as Flask, I bring a robust foundation in data analysis, machine learning, and back-end development. My experience with generative AI and natural language processing (NLP) further equips me to contribute to cutting-edge data solutions.
+
+I am particularly drawn to Mode’s emphasis on collaboration and innovation, values that resonate deeply with my own approach to problem-solving and teamwork. I am confident that my technical expertise, leadership experience, and passion for data-driven innovation make me a strong fit for your team.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with Mode’s goals. Please feel free to contact me at your convenience.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

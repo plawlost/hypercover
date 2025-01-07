@@ -1,0 +1,17 @@
+Dear Hiring Team at Cloudflare,
+
+I am excited to apply for the Systems Administrator position at Cloudflare. With a strong background in systems administration, back-end development, and AI/ML integration, I am eager to bring my technical expertise and passion for innovation to your team. My experience in leading IT teams, designing scalable systems, and maintaining system integrity aligns perfectly with Cloudflare’s mission to build a better internet.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of the back-end and AI systems for Clade AI Mini, a project that required seamless integration of advanced algorithms and robust system architecture. I led cross-functional IT teams, ensuring successful project execution while maintaining system integrity through rigorous debugging and version control. Additionally, I co-authored a research paper on leveraging AI and big data in digital content platforms, showcasing my ability to innovate and apply cutting-edge technologies to real-world challenges.
+
+Some highlights of my technical experience include:
+- Designing and implementing custom AI/ML algorithms tailored to product needs.
+- Documenting technical processes and system architectures for future scalability.
+- Maintaining system performance and security through proactive debugging and optimization.
+
+Cloudflare’s focus on web performance and security resonates deeply with my professional interests. I am particularly drawn to your innovative use of technology to enhance internet reliability and security, and I am eager to contribute my skills in systems administration, back-end development, and AI integration to further these goals.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my experience and skills align with Cloudflare’s vision. I look forward to the possibility of contributing to your team’s success.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

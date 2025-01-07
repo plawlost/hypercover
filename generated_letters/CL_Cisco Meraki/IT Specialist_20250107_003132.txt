@@ -1,0 +1,14 @@
+Dear Hiring Team at Cisco Meraki,  
+
+I am excited to apply for the IT Specialist position at Cisco Meraki. With a strong background in IT leadership, back-end development, and AI/ML systems, coupled with a passion for leveraging technology to solve complex problems, I am eager to contribute to your mission of delivering innovative, cloud-managed IT solutions.  
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of the back-end and AI systems for Clade AI Mini, a project that required integrating advanced algorithms and ensuring seamless functionality. Leading a cross-functional IT team, I successfully coordinated efforts to deliver a robust prototype while maintaining system integrity through rigorous debugging and version control. Additionally, I co-authored a research paper titled *"Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms,"* which highlights my ability to innovate and apply AI solutions to real-world challenges.  
+
+My technical expertise spans generative AI, natural language processing (NLP), knowledge graph-based NLP, and back-end development using technologies such as Flask and WordPress. I have also demonstrated strong leadership and problem-solving skills, mentoring teams and driving projects to successful completion. These experiences have equipped me with the ability to design, implement, and maintain scalable IT systems that align with business objectives.  
+
+Cisco Meraki’s commitment to simplifying IT infrastructure through cloud-managed solutions resonates deeply with my professional philosophy. I am particularly drawn to the opportunity to work with cutting-edge technologies and contribute to a culture of innovation and collaboration. I am confident that my technical skills, leadership experience, and passion for technology will enable me to make a meaningful impact on your team.  
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my background and skills align with Cisco Meraki’s goals. I look forward to the possibility of contributing to your team’s success.  
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

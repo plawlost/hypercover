@@ -1,0 +1,17 @@
+Dear Hiring Team at Asana,
+
+I am excited to apply for the Frontend Developer position at Asana. With a strong background in web development, AI integration, and leadership, I am eager to bring my technical expertise and passion for innovation to your team. My experience in building scalable, user-centric solutions aligns perfectly with Asana’s mission to empower teams to work together effortlessly.
+
+### Technical Expertise
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of Clade AI Mini, a project that required seamless integration of advanced AI algorithms with a robust back-end system. I led the IT team, ensuring cross-functional collaboration and delivering a high-quality product. My technical toolkit includes proficiency in **C, Flask, WordPress, and machine learning frameworks**, as well as hands-on experience with **Natural Language Processing (NLP)** and **Knowledge Graph-Based NLP**. These skills have enabled me to design and implement innovative solutions that solve complex problems.
+
+### Project Highlights
+One of my proudest achievements was co-authoring the research paper *“Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms.”* This work showcased my ability to apply cutting-edge AI techniques to real-world challenges, a mindset I would bring to Asana to enhance your platform’s capabilities. Additionally, I have a proven track record of documenting technical processes and system architectures, ensuring scalability and maintainability—qualities that are critical for a company like Asana, where reliability and performance are paramount.
+
+### Alignment with Asana’s Vision
+Asana’s focus on workplace collaboration resonates deeply with my passion for creating tools that empower teams to achieve their goals. I am particularly drawn to the opportunity to contribute to a platform that simplifies workflows and fosters productivity. My experience in mentoring and team leadership has also equipped me to collaborate effectively within Asana’s dynamic and innovative culture.
+
+Thank you for considering my application. I am eager to discuss how my skills and experiences align with Asana’s vision and how I can contribute to your team’s success. I look forward to the possibility of working together to build the future of workplace collaboration.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

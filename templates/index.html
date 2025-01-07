@@ -236,6 +236,20 @@
                     </div>
                 </div>
             </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Output Format:</label>
+                <div class="flex items-center space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="docx-format" name="formats" value="docx" class="form-checkbox" checked>
+                        <span class="ml-2">DOCX</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="pdf-format" name="formats" value="pdf" class="form-checkbox">
+                        <span class="ml-2">PDF</span>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -432,23 +446,27 @@
         function handleDrop(e) {
             e.preventDefault();
             const file = e.dataTransfer.files[0];
-            if (file && file.name.endsWith('.csv')) {
-                handleFile(file);
-            } else {
-                alert('Please upload a CSV file');
-            }
+            handleFile(file);
         }
 
         function handleDragOver(e) {
             e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
         }
 
         function handleFileSelect(e) {
             const file = e.target.files[0];
-            if (file) handleFile(file);
+            handleFile(file);
         }
 
         function handleFile(file) {
+            if (!file) return;
+            
+            if (!validate_file_extension(file.name)) {
+                alert('Please upload a CSV file');
+                return;
+            }
+            
             selectedFile = file;
             const preview = document.getElementById('file-preview');
             const fileName = document.getElementById('file-name');
@@ -458,6 +476,10 @@
             updateGenerateButton();
         }
 
+        function validate_file_extension(filename) {
+            return filename.toLowerCase().endsWith('.csv');
+        }
+
         async function generateCoverLetters() {
             if (!userProfile || !selectedFile || !selectedTemplate) {
                 alert('Please complete all steps first');
@@ -465,43 +487,100 @@
             }
 
             const generateBtn = document.getElementById('generate-btn');
-            generateBtn.disabled = true;
-            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('user_profile', JSON.stringify(userProfile));
-            formData.append('template_id', selectedTemplate);
-            formData.append('session_id', sessionId);
-
-            document.getElementById('progress-section').classList.remove('hidden');
-            document.getElementById('progress-bar').style.width = '0%';
-            document.getElementById('progress-percentage').textContent = '0%';
-            document.getElementById('progress-status').textContent = 'Processing';
-            document.getElementById('progress-details').textContent = 'Initializing...';
+            const progressSection = document.getElementById('progress-section');
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressStatus = document.getElementById('progress-status');
+            const progressDetails = document.getElementById('progress-details');
 
             try {
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+                const formats = Array.from(document.querySelectorAll('input[name="formats"]:checked')).map(cb => cb.value);
+                if (formats.length === 0) {
+                    alert("Please select at least one output format");
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('user_profile', JSON.stringify(userProfile));
+                formData.append('template_id', selectedTemplate);
+                formData.append('formats', JSON.stringify(formats));
+                formData.append('session_id', sessionId);
+
+                progressSection.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                progressStatus.textContent = 'Processing';
+                progressStatus.classList.remove('bg-green-200', 'text-green-600');
+                progressStatus.classList.add('bg-blue-200', 'text-blue-600');
+                progressDetails.textContent = 'Initializing...';
+
                 const response = await fetch('/api/bulk-generate', {
                     method: 'POST',
-                    body: formData,
+                    body: formData
                 });
 
-                if (!response.ok) throw new Error('Generation failed');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Generation failed');
+                }
 
                 const result = await response.json();
-                if (result.success) {
+                
+                if (result.status === 'success' && result.zip_file) {
                     updateProgress(100);
-                    document.getElementById('progress-status').textContent = 'Complete';
-                    document.getElementById('progress-details').textContent = 'Downloading your cover letters...';
-                    window.location.href = result.download_url;
+                    progressStatus.textContent = 'Complete';
+                    progressStatus.classList.remove('bg-blue-200', 'text-blue-600');
+                    progressStatus.classList.add('bg-green-200', 'text-green-600');
+                    progressDetails.textContent = 'Successfully generated cover letters. Downloading...';
+                    
+                    // Create a temporary link and trigger download
+                    const link = document.createElement('a');
+                    link.href = `/download/${result.zip_file}`;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error(result.message || 'Failed to generate cover letters');
                 }
             } catch (error) {
+                progressStatus.textContent = 'Error';
+                progressStatus.classList.remove('bg-blue-200', 'text-blue-600');
+                progressStatus.classList.add('bg-red-200', 'text-red-600');
+                progressDetails.textContent = `Error: ${error.message}`;
                 alert('Error generating cover letters: ' + error.message);
             } finally {
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = 'Generate Cover Letters';
             }
         }
+
+        // Socket.IO event handler for progress updates
+        socket.on('generation_progress', function(data) {
+            if (data.session_id === sessionId) {
+                const progress = Math.min(100, Math.round(data.progress));
+                const progressBar = document.getElementById('progress-bar');
+                const progressPercentage = document.getElementById('progress-percentage');
+                const progressDetails = document.getElementById('progress-details');
+                
+                progressBar.style.width = `${progress}%`;
+                progressPercentage.textContent = `${progress}%`;
+                
+                if (progress < 30) {
+                    progressDetails.textContent = 'Gathering company information...';
+                } else if (progress < 60) {
+                    progressDetails.textContent = 'Generating cover letters...';
+                } else if (progress < 90) {
+                    progressDetails.textContent = 'Creating documents...';
+                } else if (progress < 100) {
+                    progressDetails.textContent = 'Finalizing...';
+                }
+            }
+        });
 
         // Close modal when clicking outside
         document.getElementById('template-modal').addEventListener('click', function(e) {

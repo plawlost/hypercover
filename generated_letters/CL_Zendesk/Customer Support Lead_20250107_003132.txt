@@ -1,0 +1,14 @@
+Dear Hiring Team at Zendesk,
+
+I am excited to apply for the **Customer Support Lead** position at Zendesk. With a strong background in **Generative AI, Natural Language Processing (NLP), and back-end development**, coupled with a proven track record of leading technical teams and delivering innovative solutions, I am confident in my ability to contribute to your mission of providing exceptional customer service software.
+
+In my role as **Deputy Co-Founder and Chief Technology Officer at PlawLabs**, I spearheaded the development of AI-driven systems, including the back-end and AI integration for the Clade AI Mini prototype. My responsibilities included leading cross-functional IT teams, designing custom AI/ML algorithms, and ensuring system scalability through meticulous documentation and debugging. These experiences have honed my ability to manage complex technical projects while maintaining a customer-centric focus.
+
+One of my key achievements was co-authoring the research paper **"Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms,"** which highlights my expertise in leveraging AI to solve real-world challenges. Additionally, my hands-on experience with **Flask, WordPress, and back-end web development** has equipped me with the technical versatility to adapt to Zendesk’s dynamic environment.
+
+What excites me most about Zendesk is your commitment to empowering businesses through innovative customer service solutions. My passion for **creative problem-solving, leadership, and mentoring** aligns perfectly with your culture of collaboration and continuous improvement. I am eager to bring my technical expertise and customer-focused mindset to your team, ensuring that Zendesk continues to deliver exceptional experiences for its users.
+
+Thank you for considering my application. I look forward to the opportunity to discuss how my skills and experiences align with the needs of your team.
+
+Best regards,  
+**Mehmet Utku ÖZTÜRK**

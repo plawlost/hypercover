@@ -1,0 +1,17 @@
+Dear Hiring Team at Instacart,
+
+I am excited to apply for the Retail Analyst position at Instacart. With a strong background in data analysis, AI-driven solutions, and a proven track record of leading innovative projects, I am eager to contribute to your mission of revolutionizing grocery delivery through data-driven insights and strategic decision-making.
+
+In my role as Chief Innovation Officer and Deputy Co-Founder at PlawLabs, I spearheaded the development of AI systems and back-end infrastructure for Clade AI Mini, a project that required integrating advanced algorithms and ensuring seamless functionality. My experience in designing and implementing AI/ML algorithms, coupled with my ability to lead cross-functional teams, has equipped me with the technical expertise and leadership skills necessary to excel in a dynamic and data-centric environment like Instacart.
+
+Some highlights of my work include:
+- **AI and Data Integration**: Developed custom AI/ML algorithms tailored to product needs, ensuring scalability and performance.
+- **Research and Innovation**: Co-authored a research paper on leveraging AI and big data in digital content platforms, demonstrating my ability to apply cutting-edge technology to real-world challenges.
+- **Technical Documentation**: Created comprehensive documentation for system architectures and processes, ensuring clarity and future scalability.
+
+My technical skills in Generative AI, Natural Language Processing, and back-end development align closely with the demands of the Retail Analyst role. I am particularly drawn to Instacart’s commitment to leveraging technology to enhance the grocery shopping experience, and I am excited about the opportunity to contribute to your data-driven strategies.
+
+Thank you for considering my application. I look forward to the possibility of discussing how my skills and experiences align with Instacart’s goals.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

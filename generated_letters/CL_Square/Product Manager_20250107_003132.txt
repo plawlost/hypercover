@@ -1,0 +1,14 @@
+Dear Hiring Team at Square,
+
+I am excited to apply for the Product Manager position at Square. With a strong background in Generative AI, Natural Language Processing (NLP), and back-end web development, coupled with a proven track record of leading innovative projects, I am confident in my ability to contribute to your technical team and drive impactful product initiatives.
+
+In my role as Deputy Co-Founder at PlawLabs, I spearheaded the development of the back-end and AI systems for the prototype of Clade AI Mini. This involved integrating advanced algorithms, ensuring seamless functionality, and leading a cross-functional IT team to successful project execution. My experience in designing and implementing diverse AI/ML algorithms, including custom systems tailored to unique product needs, has equipped me with the technical expertise to manage complex product development cycles.
+
+One of my key achievements was co-authoring the research paper "Streaming Intelligence: Harnessing AI and Big Data in the Competitive Landscape of Digital Content Platforms," which showcases my ability to innovate and apply AI in practical, impactful ways. Additionally, my experience in documenting technical processes and maintaining system integrity through debugging and version control management has honed my ability to ensure product scalability and reliability.
+
+At Square, I am particularly drawn to the opportunity to leverage my technical skills and leadership experience to enhance your payment solutions. My passion for technology and problem-solving aligns with Square's mission to empower businesses through innovative financial tools. I am eager to bring my expertise in AI, machine learning, and back-end development to your team, contributing to the creation of cutting-edge products that drive user satisfaction and business growth.
+
+Thank you for considering my application. I look forward to the possibility of discussing how my background, skills, and enthusiasms align with the goals of Square.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

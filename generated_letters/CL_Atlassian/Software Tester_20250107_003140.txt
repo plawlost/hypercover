@@ -1,0 +1,17 @@
+Dear Hiring Team at Atlassian,
+
+I am excited to apply for the **Software Tester** position at Atlassian. With a strong background in **Generative AI, Natural Language Processing (NLP), and back-end development**, coupled with a proven track record of leading technical teams and delivering innovative solutions, I am confident in my ability to contribute to your mission of creating world-class collaboration software.
+
+In my role as **Deputy Co-Founder and Chief Technology Officer at PlawLabs**, I spearheaded the development of the back-end and AI systems for **Clade AI Mini**, a project that required seamless integration of advanced algorithms and meticulous attention to detail. My responsibilities included designing and implementing AI/ML algorithms, maintaining system integrity through debugging and version control, and documenting technical processes for scalability. These experiences have honed my ability to ensure software quality and reliability, which I believe aligns perfectly with the demands of a Software Tester role at Atlassian.
+
+Some highlights of my work include:
+- **Leading cross-functional IT teams** to deliver complex projects on time, fostering collaboration and innovation.
+- **Co-authoring a research paper** on AI and Big Data in digital content platforms, showcasing my ability to apply cutting-edge technologies to real-world challenges.
+- **Developing and maintaining robust systems** that prioritize performance, scalability, and user experience.
+
+At Atlassian, I am particularly drawn to your commitment to fostering collaboration and innovation through your products. My technical expertise in **AI, NLP, and back-end development**, combined with my passion for problem-solving and attention to detail, positions me to excel in ensuring the quality and reliability of your software solutions. I am eager to bring my skills to your team and contribute to delivering exceptional tools that empower teams worldwide.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my experience and skills align with Atlassian’s goals. Please feel free to contact me at your convenience.
+
+Best regards,  
+**Mehmet Utku ÖZTÜRK**

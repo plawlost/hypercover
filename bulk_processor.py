@@ -1,27 +1,28 @@
+import os
 import asyncio
+import logging
+import zipfile
+from datetime import datetime, date
+from typing import List, Dict, Optional, Callable
 import pandas as pd
-from typing import List, Dict, Optional
 from groq import AsyncGroq
 from pathlib import Path
 import aiofiles
 from docx import Document
 import pypandoc
 from io import BytesIO
-import zipfile
 import json
-from datetime import datetime
-import aiohttp
-from bs4 import BeautifulSoup
-import os
-from templates.cover_letter_templates import get_template_prompt, get_template_info
-from redis import asyncio as aioredis
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 import aiodns
 from charset_normalizer import detect
-import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from prometheus_client import Counter, Histogram
+from openai import AsyncOpenAI
+from bs4 import BeautifulSoup
+import aiohttp
+from redis import asyncio as aioredis
+from templates.cover_letter_templates import get_template_info, get_template_prompt
 
 # Performance metrics
 GENERATION_TIME = Histogram('cover_letter_generation_seconds', 'Time spent generating cover letters')
@@ -29,66 +30,95 @@ CACHE_HITS = Counter('cache_hits_total', 'Total number of cache hits')
 API_ERRORS = Counter('api_errors_total', 'Total number of API errors')
 
 class BulkCoverLetterGenerator:
-    def __init__(self, groq_api_key: str):
+    def __init__(self, groq_api_key: str, deepseek_api_key: str):
         self.groq_client = AsyncGroq(api_key=groq_api_key)
+        self.openai_client = AsyncOpenAI(
+            api_key=deepseek_api_key,
+            base_url="https://api.deepseek.com"
+        )
+        # Create output directory with parents
         self.output_dir = Path("generated_letters")
-        self.output_dir.mkdir(exist_ok=True)
+        try:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            if not self.output_dir.exists():
+                raise Exception("Failed to create output directory")
+        except Exception as e:
+            raise Exception(f"Error creating output directory: {str(e)}")
+            
         self.company_cache = {}
         self.session = None
-        self.executor = ThreadPoolExecutor(max_workers=os.cpu_count() * 2)  # Optimize for CPU cores
+        self.executor = ThreadPoolExecutor(max_workers=os.cpu_count() * 2)
         self.dns_resolver = None
         self.redis_client = None
         self.template_cache = {}
         self.logger = logging.getLogger(__name__)
+        self.event_loop = None
         
         # Configure optimal chunk sizes based on testing
-        self.COMPANY_BATCH_SIZE = 25  # Optimal batch size for company info fetching
-        self.LETTER_BATCH_SIZE = 20   # Optimal batch size for letter generation
-        self.MAX_CONCURRENT_REQUESTS = 50  # Maximum concurrent API requests
+        self.COMPANY_BATCH_SIZE = 25
+        self.LETTER_BATCH_SIZE = 20
+        self.MAX_CONCURRENT_REQUESTS = 50
         
     async def initialize(self):
         """Initialize async resources with optimized settings"""
-        # Configure logging
-        logging.basicConfig(level=logging.INFO)
-        
-        # Optimize HTTP session
-        timeout = aiohttp.ClientTimeout(total=30, connect=5, sock_connect=5, sock_read=10)
-        connector = aiohttp.TCPConnector(
-            limit=self.MAX_CONCURRENT_REQUESTS,
-            ttl_dns_cache=300,
-            use_dns_cache=True,
-            ssl=False,
-            keepalive_timeout=60
-        )
-        self.session = aiohttp.ClientSession(
-            timeout=timeout,
-            connector=connector,
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        
-        # Initialize DNS resolver
-        self.dns_resolver = aiodns.DNSResolver()
-        
-        # Try to initialize Redis, fall back to None if not available
-        self.redis_client = None
         try:
-            redis = await aioredis.Redis.from_url(
-                'redis://localhost',
-                max_connections=20,
-                socket_timeout=1
+            # Configure logging
+            logging.basicConfig(level=logging.INFO)
+            
+            # Initialize event loop
+            try:
+                self.event_loop = asyncio.get_event_loop()
+            except RuntimeError:
+                self.event_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self.event_loop)
+            
+            # Optimize HTTP session
+            timeout = aiohttp.ClientTimeout(total=30, connect=5, sock_connect=5, sock_read=10)
+            connector = aiohttp.TCPConnector(
+                limit=self.MAX_CONCURRENT_REQUESTS,
+                ttl_dns_cache=300,
+                use_dns_cache=True,
+                ssl=False,
+                keepalive_timeout=60
             )
-            # Validate connection with a ping
-            if await redis.ping():
-                self.redis_client = redis
-                self.logger.info("Redis connection established and validated")
-            else:
-                self.logger.warning("Redis connection failed ping check")
+            self.session = aiohttp.ClientSession(
+                timeout=timeout,
+                connector=connector,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            
+            # Initialize DNS resolver
+            self.dns_resolver = aiodns.DNSResolver(loop=self.event_loop)
+            
+            # Initialize Redis with proper error handling
+            self.redis_client = None
+            try:
+                redis = await aioredis.Redis.from_url(
+                    'redis://localhost',
+                    max_connections=20,
+                    socket_timeout=1,
+                    retry_on_timeout=True,
+                    health_check_interval=30
+                )
+                # Validate connection with a ping and set operation
+                if await redis.ping() and await redis.set('test_key', 'test_value', ex=1):
+                    self.redis_client = redis
+                    self.logger.info("Redis connection established and validated")
+                else:
+                    self.logger.warning("Redis connection failed validation checks")
+                    await redis.close()
+            except Exception as e:
+                self.logger.warning(f"Redis not available, falling back to in-memory cache: {str(e)}")
+                if 'redis' in locals():
+                    await redis.close()
+            
+            # Warm up template cache
+            await self._preload_templates()
+            
         except Exception as e:
-            self.logger.warning(f"Redis not available, falling back to in-memory cache: {str(e)}")
-        
-        # Warm up template cache
-        await self._preload_templates()
-        
+            self.logger.error(f"Error in initialization: {str(e)}")
+            raise
+
     async def _is_redis_available(self) -> bool:
         """Check if Redis is available and connected"""
         if not self.redis_client:
@@ -136,12 +166,30 @@ class BulkCoverLetterGenerator:
                 )
 
     @GENERATION_TIME.time()
-    async def process_spreadsheet(self, spreadsheet_path: str, user_profile: dict, template_id: str, progress_callback=None) -> str:
-        """Process entire spreadsheet with optimized parallel processing"""
+    async def process_spreadsheet(self, spreadsheet_path: str, user_profile: Dict, template_id: str, formats: List[str] = None, progress_callback=None):
+        """Process spreadsheet with optimized batch processing"""
         try:
+            # Default to DOCX if no formats specified
+            if not formats:
+                formats = ['docx']
+                
             df = pd.read_csv(spreadsheet_path)
             total_tasks = len(df)
             completed_tasks = 0
+            total_progress = 0  # Track overall progress including company info and letter generation
+            
+            # Create progress update function that handles both async and sync callbacks
+            async def update_progress(progress_value):
+                nonlocal total_progress
+                total_progress = progress_value
+                if progress_callback:
+                    try:
+                        if asyncio.iscoroutinefunction(progress_callback):
+                            await progress_callback(progress_value)
+                        else:
+                            progress_callback(progress_value)
+                    except Exception as e:
+                        self.logger.error(f"Error updating progress: {str(e)}")
             
             # Pre-fetch and cache company data in optimal batches
             company_names = df['company_name'].unique()
@@ -151,38 +199,72 @@ class BulkCoverLetterGenerator:
             ]
             
             # Use semaphore to control concurrent API requests
-            sem = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
+            sem = asyncio.Semaphore(min(self.MAX_CONCURRENT_REQUESTS, 10))  # Limit concurrent connections
             
             async def fetch_with_semaphore(name):
                 async with sem:
-                    return await self.gather_company_info(name)
+                    try:
+                        # Ensure we have a valid event loop
+                        if not self.event_loop or self.event_loop.is_closed():
+                            self.event_loop = asyncio.get_event_loop()
+                        return await self.gather_company_info(name)
+                    except Exception as e:
+                        self.logger.error(f"Error fetching company info for {name}: {str(e)}")
+                        return {"name": name, "description": f"Company information unavailable"}
             
-            # Fetch company data with controlled concurrency
-            for batch in company_batches:
-                await asyncio.gather(*[
-                    fetch_with_semaphore(name) for name in batch
-                ], return_exceptions=True)
+            # Fetch company data with controlled concurrency (40% of total progress)
+            company_info_cache = {}
+            for i, batch in enumerate(company_batches):
+                company_tasks = [fetch_with_semaphore(name) for name in batch]
+                batch_results = await asyncio.gather(*company_tasks, return_exceptions=True)
+                
+                # Cache company info, handling exceptions
+                for name, result in zip(batch, batch_results):
+                    if isinstance(result, Exception):
+                        self.logger.error(f"Error processing company {name}: {str(result)}")
+                        company_info_cache[name] = {
+                            "name": name,
+                            "description": "Company information unavailable"
+                        }
+                    else:
+                        company_info_cache[name] = result
+                
+                # Update progress (company info is 40% of total progress)
+                progress = (i + 1) / len(company_batches) * 40
+                await update_progress(progress)
             
-            # Process cover letters in optimized batches
+            # Process cover letters in optimized batches (remaining 60% of progress)
             results = []
-            for i in range(0, total_tasks, self.LETTER_BATCH_SIZE):
-                batch_df = df.iloc[i:i + self.LETTER_BATCH_SIZE]
+            letter_batches = [
+                df.iloc[i:i + self.LETTER_BATCH_SIZE] 
+                for i in range(0, len(df), self.LETTER_BATCH_SIZE)
+            ]
+            
+            for i, batch_df in enumerate(letter_batches):
                 batch_tasks = []
                 
                 for _, row in batch_df.iterrows():
+                    company_name = row['company_name']
+                    company_info = company_info_cache.get(company_name, {
+                        "name": company_name,
+                        "description": "Company information unavailable"
+                    })
+                    
                     task = self.generate_single_letter(
-                        company_name=row['company_name'],
+                        company_name=company_name,
                         position=row['position'],
                         user_profile=user_profile,
                         template_id=template_id,
-                        notes=row.get('notes', '')
+                        formats=formats,
+                        notes=row.get('notes', ''),
+                        company_info=company_info
                     )
                     batch_tasks.append(task)
                 
                 # Process batch with error handling
                 batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 
-                # Handle results and update progress
+                # Handle results
                 for result in batch_results:
                     if isinstance(result, Exception):
                         self.logger.error(f"Error in letter generation: {str(result)}")
@@ -190,16 +272,30 @@ class BulkCoverLetterGenerator:
                     else:
                         results.append(result)
                 
-                completed_tasks += len(batch_results)
-                if progress_callback:
-                    progress = (completed_tasks / total_tasks) * 100
-                    await progress_callback(progress)
+                # Update progress (letter generation is 60% of total progress)
+                progress = 40 + ((i + 1) / len(letter_batches) * 60)
+                await update_progress(progress)
             
-            return await self._package_results(results)
+            # Ensure final progress update
+            await update_progress(100)
+            
+            # Package results
+            try:
+                return await self._package_results(results)
+            except Exception as e:
+                self.logger.error(f"Error packaging results: {str(e)}")
+                raise
             
         except Exception as e:
             self.logger.error(f"Error in bulk processing: {str(e)}")
             raise
+        finally:
+            # Clean up any temporary files
+            try:
+                if os.path.exists(spreadsheet_path):
+                    os.remove(spreadsheet_path)
+            except Exception as e:
+                self.logger.warning(f"Error cleaning up temporary file: {str(e)}")
 
     async def _async_remove(self, path: str):
         """Asynchronously remove a file"""
@@ -444,7 +540,7 @@ class BulkCoverLetterGenerator:
     async def _extract_keywords(self, text: str) -> List[str]:
         """Extract relevant keywords from text using AI"""
         try:
-            response = await self.groq_client.chat.completions.create(
+            response = await self.openai_client.chat.completions.create(
                 messages=[{
                     "role": "user",
                     "content": f"""Extract 5-10 relevant keywords from this text that would be useful for a cover letter:
@@ -452,7 +548,7 @@ class BulkCoverLetterGenerator:
                     
                     Return only the keywords, separated by commas."""
                 }],
-                model="llama-3.3-70b-versatile",
+                model="deepseek-chat",
                 temperature=0.3,
                 max_tokens=100
             )
@@ -471,7 +567,7 @@ class BulkCoverLetterGenerator:
             Website: {website_content[:500]}
             """
             
-            response = await self.groq_client.chat.completions.create(
+            response = await self.openai_client.chat.completions.create(
                 messages=[{
                     "role": "user",
                     "content": f"""Analyze this company's culture and values based on the following sources:
@@ -482,7 +578,7 @@ class BulkCoverLetterGenerator:
                     2. A brief description of the work environment
                     Format: {{"values": [], "environment": ""}}"""
                 }],
-                model="llama-3.3-70b-versatile",
+                model="deepseek-chat",
                 temperature=0.3,
                 max_tokens=200
             )
@@ -499,7 +595,7 @@ class BulkCoverLetterGenerator:
             Website: {website_content[:500]}
             """
             
-            response = await self.groq_client.chat.completions.create(
+            response = await self.openai_client.chat.completions.create(
                 messages=[{
                     "role": "user",
                     "content": f"""Extract the technology stack and tools mentioned in this text:
@@ -507,7 +603,7 @@ class BulkCoverLetterGenerator:
                     
                     Return only the technology names, separated by commas."""
                 }],
-                model="llama-3.3-70b-versatile",
+                model="deepseek-chat",
                 temperature=0.3,
                 max_tokens=100
             )
@@ -517,60 +613,69 @@ class BulkCoverLetterGenerator:
         except:
             return []
     
-    async def generate_single_letter(self, company_name: str, position: str, user_profile: dict, template_id: str, notes: str = "") -> Dict:
-        """Generate a single cover letter with optimized processing"""
+    async def generate_single_letter(self, company_name: str, position: str, user_profile: Dict, 
+                                   template_id: str, formats: List[str], notes: str = "", company_info: Dict = None) -> Dict:
+        """Generate a single cover letter with specified formats"""
         try:
             # Generate cache key
-            cache_key = f"letter:{company_name}:{position}:{template_id}:{hash(json.dumps(user_profile))}"
+            cache_key = f"letter:{company_name}:{position}:{template_id}:{hash(json.dumps(user_profile, default=self._serialize_date))}"
             
             # Check Redis cache
             if self.redis_client:
                 cached_letter = await self.redis_client.get(cache_key)
                 if cached_letter:
-                    cached_data = json.loads(cached_letter)
-                    return {
-                        'docx_path': cached_data['docx_path'],
-                        'pdf_path': cached_data['pdf_path']
-                    }
+                    try:
+                        cached_data = json.loads(cached_letter)
+                        if all(os.path.exists(cached_data[k]) for k in cached_data.keys()):
+                            return cached_data
+                    except:
+                        pass
             
-            # Gather company info and generate content in parallel
-            company_info_task = asyncio.create_task(self.gather_company_info(company_name))
-            template_task = asyncio.create_task(self._get_template(template_id))
+            # Get template (should be cached from earlier)
+            template = await self._get_template(template_id)
             
-            company_info, template = await asyncio.gather(company_info_task, template_task)
-            
-            # Generate content with optimized prompt
-            content = await self._generate_content(
-                company_info=company_info,
+            # Generate content with retry
+            content = await self._generate_content_with_retry(
+                company_info=company_info or await self.gather_company_info(company_name),
                 position=position,
                 user_profile=user_profile,
                 template=template,
                 notes=notes
             )
             
-            # Generate documents in parallel
-            docx_task = asyncio.create_task(self._create_docx(content, company_name, position))
-            pdf_task = asyncio.create_task(self._create_pdf(content, company_name, position))
+            result = {}
             
-            docx_path, pdf_path = await asyncio.gather(docx_task, pdf_task)
+            # Create documents based on selected formats
+            if 'docx' in formats:
+                docx_path = await self._create_docx(content, company_name, position)
+                result['docx_path'] = docx_path
             
-            result = {
-                'docx_path': docx_path,
-                'pdf_path': pdf_path
-            }
+            if 'pdf' in formats:
+                # If we have a DOCX, convert from it; otherwise create directly
+                pdf_path = await self._create_pdf(
+                    content, 
+                    company_name, 
+                    position,
+                    docx_path=result.get('docx_path')
+                )
+                result['pdf_path'] = pdf_path
             
             # Cache the result
-            if self.redis_client:
-                await self.redis_client.set(
-                    cache_key,
-                    json.dumps(result),
-                    expire=3600  # Cache for 1 hour
-                )
+            await self._cache_result(cache_key, result)
             
             return result
             
         except Exception as e:
             raise Exception(f"Error generating letter for {company_name}: {str(e)}")
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def _generate_content_with_retry(self, **kwargs):
+        """Generate content with retry logic"""
+        try:
+            return await self._generate_content(**kwargs)
+        except Exception as e:
+            self.logger.error(f"Error in content generation attempt: {str(e)}")
+            raise
 
     async def _get_template(self, template_id: str) -> Dict:
         """Get template with caching"""
@@ -593,95 +698,190 @@ class BulkCoverLetterGenerator:
         self.template_cache[template_id] = template
         return template
 
-    async def _generate_content(self, company_info: Dict, position: str, user_profile: Dict, template: Dict, notes: str) -> str:
-        """Generate cover letter content with optimized prompt"""
-        # Prepare optimized prompt with only essential information
-        prompt = template.get("prompt_template", "")
-        
-        # Extract only needed company info to reduce token usage
-        company_context = {
-            "name": company_info["name"],
-            "description": company_info["description"][:500],  # Limit length
-            "culture": {
-                "values": company_info["culture"]["values"][:3],  # Limit to top values
-                "work_environment": company_info["culture"]["work_environment"][:200]
-            }
-        }
-        
-        # Extract only relevant user profile info
-        user_context = {
-            "name": user_profile["name"],
-            "current_role": user_profile["current_role"],
-            "key_skills": user_profile["skills"][:5],  # Limit to top skills
-            "experience": user_profile.get("experience", [])[:2]  # Limit to recent experience
-        }
-        
+    async def _generate_content(self, company_info: Dict, position: str, user_profile: Dict, template: Dict, notes: str = "") -> str:
+        """Generate cover letter content using AI"""
         try:
-            response = await self.groq_client.chat.completions.create(
-                model="mixtral-8x7b-32768",  # Using Mixtral for faster inference
+            # Prepare context for generation
+            context = {
+                "company": {
+                    "name": company_info.get("name", ""),
+                    "description": company_info.get("description", ""),
+                    "culture": company_info.get("culture", {}),
+                    "technologies": company_info.get("technologies", [])
+                },
+                "position": position,
+                "candidate": {
+                    "name": user_profile.get("name", ""),
+                    "experience": user_profile.get("experience", [])[:3],  # Most recent 3 experiences
+                    "skills": user_profile.get("skills", []),
+                    "education": user_profile.get("education", []),
+                    "summary": user_profile.get("summary", "")
+                },
+                "notes": notes
+            }
+
+            # Get template prompt
+            prompt = template.get("prompt_template", "")
+            if not prompt:
+                raise ValueError("Template prompt not found")
+
+            # Generate content with AI
+            response = await self.openai_client.chat.completions.create(
                 messages=[{
                     "role": "system",
-                    "content": "You are an expert cover letter writer. Generate a concise, impactful cover letter."
+                    "content": "You are an expert cover letter writer. Generate a professional, compelling cover letter."
                 }, {
                     "role": "user",
-                    "content": f"Generate a cover letter for {position} at {company_info['name']} using this template style: {prompt}\n\nCompany Info: {json.dumps(company_context)}\n\nCandidate Profile: {json.dumps(user_context)}\n\nAdditional Notes: {notes}"
+                    "content": f"{prompt}\n\nContext: {json.dumps(context, default=self._serialize_date)}"
                 }],
+                model="deepseek-chat",
                 temperature=0.7,
-                max_tokens=1000,  # Limit response length
-                top_p=0.9,
-                frequency_penalty=0.2,
-                presence_penalty=0.2
+                max_tokens=1000
             )
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
-            raise Exception(f"Error generating content: {str(e)}")
+            self.logger.error(f"Error generating content: {str(e)}")
+            raise
 
     async def _create_docx(self, content: str, company_name: str, position: str) -> str:
-        """Create DOCX file efficiently"""
-        doc = Document()
-        
-        # Optimize document creation
-        def create_doc():
-            # Add content with minimal formatting
-            doc.add_paragraph(content)
-            
-            # Save with a unique filename
-            filename = f"{self.output_dir}/CL_{company_name}_{position}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-            doc.save(filename)
-            return filename
-        
-        return await asyncio.get_event_loop().run_in_executor(
-            self.executor,
-            create_doc
-        )
-
-    async def _create_pdf(self, content: str, company_name: str, position: str) -> str:
-        """Create PDF file efficiently using pandoc"""
+        """Create DOCX file with improved formatting"""
         try:
-            # Generate unique filename
-            filename = f"{self.output_dir}/CL_{company_name}_{position}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            from docx import Document
+            from docx.shared import Pt, Inches
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
             
-            def convert_to_pdf():
-                pypandoc.convert_text(
-                    content,
-                    'pdf',
-                    format='markdown',
-                    outputfile=filename,
-                    extra_args=[
-                        '--pdf-engine=xelatex',
-                        '-V', 'geometry:margin=1in'
-                    ]
-                )
-                return filename
+            doc = Document()
+            
+            # Set margins
+            for section in doc.sections:
+                section.top_margin = Inches(1)
+                section.bottom_margin = Inches(1)
+                section.left_margin = Inches(1)
+                section.right_margin = Inches(1)
+            
+            def create_doc():
+                try:
+                    # Create company-specific directory
+                    company_dir = self.output_dir / f"{company_name}"
+                    company_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    # Split content into paragraphs
+                    paragraphs = content.split('\n\n')
+                    
+                    # Process each paragraph
+                    for p in paragraphs:
+                        if p.strip():
+                            para = doc.add_paragraph()
+                            para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                            
+                            # Handle bold text (text between ** **)
+                            parts = p.split('**')
+                            for i, part in enumerate(parts):
+                                if not part:  # Skip empty parts
+                                    continue
+                                    
+                                run = para.add_run(part)
+                                run.font.name = 'Times New Roman'
+                                run.font.size = Pt(12)
+                                
+                                # Make every other part bold (parts between ** **)
+                                if i % 2 == 1:  # Odd indices are bold
+                                    run.bold = True
+                    
+                    # Save with a descriptive filename
+                    safe_position = "".join(x for x in position if x.isalnum() or x in (' ', '-', '_')).strip()
+                    filename = company_dir / f"{company_name}_{safe_position}.docx"
+                    doc.save(str(filename))
+                    return str(filename)
+                except Exception as e:
+                    self.logger.error(f"Error in DOCX creation: {str(e)}")
+                    raise
             
             return await asyncio.get_event_loop().run_in_executor(
                 self.executor,
-                convert_to_pdf
+                create_doc
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating DOCX: {str(e)}")
+            raise
+
+    async def _create_pdf(self, content: str, company_name: str, position: str, docx_path: str = None) -> str:
+        """Create PDF file directly using reportlab"""
+        try:
+            # Create company-specific directory
+            company_dir = self.output_dir / f"{company_name}"
+            company_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename
+            safe_position = "".join(x for x in position if x.isalnum() or x in (' ', '-', '_')).strip()
+            filename = company_dir / f"{company_name}_{safe_position}.pdf"
+            
+            def create_pdf():
+                try:
+                    from reportlab.lib import colors
+                    from reportlab.lib.pagesizes import letter
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.lib.units import inch
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                    
+                    # Create document with proper margins
+                    doc = SimpleDocTemplate(
+                        str(filename),
+                        pagesize=letter,
+                        rightMargin=1*inch,
+                        leftMargin=1*inch,
+                        topMargin=1*inch,
+                        bottomMargin=1*inch
+                    )
+                    
+                    # Define styles
+                    styles = getSampleStyleSheet()
+                    normal_style = ParagraphStyle(
+                        'CustomNormal',
+                        parent=styles['Normal'],
+                        fontSize=12,
+                        leading=14,
+                        fontName='Times-Roman'
+                    )
+                    
+                    # Process content
+                    story = []
+                    paragraphs = content.split('\n\n')
+                    
+                    for p in paragraphs:
+                        if p.strip():
+                            # Handle bold text (between ** **)
+                            parts = p.split('**')
+                            formatted_text = ''
+                            for i, part in enumerate(parts):
+                                if i % 2 == 1:  # Odd indices are bold
+                                    formatted_text += f'<b>{part}</b>'
+                                else:
+                                    formatted_text += part
+                            
+                            para = Paragraph(formatted_text, normal_style)
+                            story.append(para)
+                            story.append(Spacer(1, 12))
+                    
+                    # Build PDF
+                    doc.build(story)
+                    return str(filename)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error in PDF creation: {str(e)}")
+                    raise
+            
+            # Create PDF in executor
+            return await asyncio.get_event_loop().run_in_executor(
+                self.executor,
+                create_pdf
             )
             
         except Exception as e:
-            raise Exception(f"Error creating PDF: {str(e)}")
+            self.logger.error(f"Error in PDF creation: {str(e)}")
+            raise
     
     async def generate_preview(self, template_settings: dict, format_type: str = 'doc') -> str:
         """Generate a preview of the cover letter with the given template settings"""
@@ -752,21 +952,24 @@ class BulkCoverLetterGenerator:
     async def format_content_for_pdf(self, content: str) -> str:
         """Format the content for PDF preview"""
         # Add any PDF-specific formatting
-        html_template = '''
-        <html>
-        <head>
-            <style>
-                body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
-                p { margin-bottom: 1em; }
-            </style>
-        </head>
-        <body>
-            {}
-        </body>
-        </html>
-        '''
         formatted_content = content.replace('\n\n', '</p><p>').replace('\n', '<br>')
-        return html_template.format(formatted_content)
+        
+        # Build HTML content without f-strings
+        html_parts = [
+            '<html>',
+            '<head>',
+            '<style>',
+            'body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; }',
+            'p { margin-bottom: 1em; }',
+            '</style>',
+            '</head>',
+            '<body>',
+            formatted_content,
+            '</body>',
+            '</html>'
+        ]
+        
+        return '\n'.join(html_parts)
         
     async def save_preview_pdf(self, content: str, output_path: str):
         """Save the preview content as a PDF file"""
@@ -780,4 +983,58 @@ class BulkCoverLetterGenerator:
                 extra_args=['--pdf-engine=weasyprint']
             )
             
-        await asyncio.get_event_loop().run_in_executor(self.executor, create_pdf) 
+        await asyncio.get_event_loop().run_in_executor(self.executor, create_pdf)
+
+    async def _package_results(self, results: List[Dict]) -> Dict:
+        """Package the generated cover letter results into a single response"""
+        try:
+            # Create a zip file containing all generated documents
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            zip_filename = f"generated_letters_{timestamp}.zip"
+            
+            with zipfile.ZipFile(zip_filename, 'w') as zipf:
+                for result in results:
+                    if result and isinstance(result, dict):
+                        # Add DOCX file if it exists
+                        if 'docx_path' in result and os.path.exists(result['docx_path']):
+                            zipf.write(result['docx_path'], os.path.basename(result['docx_path']))
+                            await self._async_remove(result['docx_path'])
+                            
+                        # Add PDF file if it exists
+                        if 'pdf_path' in result and os.path.exists(result['pdf_path']):
+                            zipf.write(result['pdf_path'], os.path.basename(result['pdf_path']))
+                            await self._async_remove(result['pdf_path'])
+            
+            return {
+                'zip_file': zip_filename,
+                'total_letters': len(results),
+                'successful_generations': len([r for r in results if r and isinstance(r, dict)]),
+                'timestamp': timestamp
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error packaging results: {str(e)}")
+            raise
+
+    def _serialize_date(self, obj):
+        """Helper method to serialize dates"""
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return str(obj)
+
+    def get_available_templates(self):
+        """Get information about available templates."""
+        from templates.cover_letter_templates import get_template_info
+        return get_template_info() 
+
+    async def _cache_result(self, cache_key: str, result: Dict):
+        """Cache the result of a letter generation"""
+        if self.redis_client:
+            try:
+                await self.redis_client.set(
+                    cache_key,
+                    json.dumps(result),
+                    ex=3600  # Cache for 1 hour
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to cache result: {str(e)}") 

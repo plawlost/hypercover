@@ -1,0 +1,17 @@
+Dear Hiring Team at Plaid,  
+
+I am excited to apply for the Integration Engineer position at Plaid. With a strong background in back-end development, AI/ML systems, and cross-functional team leadership, I am eager to bring my technical expertise and passion for innovation to your team. Plaid’s mission to empower the financial technology ecosystem aligns perfectly with my drive to solve complex problems and deliver scalable, impactful solutions.  
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I spearheaded the development of the back-end and AI systems for Clade AI Mini, a project that required seamless integration of advanced algorithms and meticulous system design. I led the IT team, ensuring smooth collaboration across functions and delivering a robust, scalable prototype. Additionally, I co-authored a research paper on leveraging AI and big data in digital content platforms, demonstrating my ability to innovate and contribute to cutting-edge advancements in technology.  
+
+Some highlights of my technical experience include:  
+- Designing and implementing custom AI/ML algorithms tailored to product needs, ensuring optimal performance and scalability.  
+- Documenting technical processes and system architectures to support future development and maintainability.  
+- Debugging and managing version control to uphold system integrity and reliability.  
+
+My proficiency in programming languages such as C, Python, and frameworks like Flask, combined with my expertise in generative AI and natural language processing, positions me to excel in integrating and optimizing systems at Plaid. I am particularly drawn to Plaid’s commitment to building a seamless financial infrastructure, and I am excited about the opportunity to contribute to your mission.  
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with Plaid’s goals. I look forward to the possibility of contributing to your team and driving impactful solutions in the fintech space.  
+
+Best regards,  
+Mehmet Utku ÖZTÜRK

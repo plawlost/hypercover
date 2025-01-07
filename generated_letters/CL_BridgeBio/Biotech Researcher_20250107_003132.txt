@@ -1,0 +1,14 @@
+Dear Hiring Team at BridgeBio,
+
+I am excited to apply for the Biotech Researcher position at BridgeBio. With a strong foundation in artificial intelligence, machine learning, and software engineering, coupled with a passion for solving complex problems, I am eager to contribute to your mission of advancing genetic therapies and improving patient outcomes.
+
+In my role as Deputy Co-Founder and Chief Technology Officer at PlawLabs, I led the development of AI-driven systems, including the back-end and AI integration for the Clade AI Mini prototype. My work involved designing and implementing custom AI/ML algorithms, managing cross-functional teams, and ensuring system scalability and integrity. Additionally, I co-authored a research paper on leveraging AI and big data in digital content platforms, demonstrating my ability to innovate and apply cutting-edge technologies to real-world challenges.
+
+My technical expertise spans generative AI, natural language processing (NLP), knowledge graph-based NLP, and back-end development using Flask and WordPress. I have also honed my leadership and problem-solving skills through mentoring, team leadership, and creative problem-solving in fast-paced environments. These experiences have equipped me with the ability to tackle complex research challenges and drive impactful results.
+
+I am particularly drawn to BridgeBio’s focus on genetic therapies and its commitment to innovation in biotechnology. My background in AI and software engineering aligns with the technical demands of this role, and I am eager to apply my skills to advance your research and development efforts. I am confident that my technical acumen, leadership experience, and passion for innovation will make me a valuable asset to your team.
+
+Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experiences align with BridgeBio’s goals. I look forward to the possibility of contributing to your groundbreaking work in genetic therapies.
+
+Best regards,  
+Mehmet Utku ÖZTÜRK
